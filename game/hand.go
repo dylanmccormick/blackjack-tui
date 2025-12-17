@@ -13,6 +13,10 @@ type Hand struct {
 	Cards []card
 }
 
+func NewHand() *Hand {
+	return &Hand{Cards: []card{}}
+}
+
 func (h *Hand) AddCard(c card) {
 	h.Cards = append(h.Cards, c)
 }

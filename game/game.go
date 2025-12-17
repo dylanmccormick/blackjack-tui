@@ -3,7 +3,7 @@ package game
 import (
 	"fmt"
 	"log/slog"
-	"time"
+	"slices"
 )
 
 type (
@@ -34,6 +34,22 @@ const (
 	RESOLVING_BETS
 )
 
+func (gs GameState) String() string {
+	switch gs {
+	case WAITING_FOR_BETS:
+		return "WAITING_FOR_BETS"
+	case DEALING:
+		return "DEALING"
+	case PLAYER_TURN:
+		return "PLAYER_TURN"
+	case DEALER_TURN:
+		return "DEALER_TURN"
+	case RESOLVING_BETS:
+		return "RESOLVING_BETS"
+	}
+	return "UNKNOWN"
+}
+
 const (
 	PLAYER_LIMIT int = 5
 	DECK_COUNT   int = 6
@@ -41,11 +57,13 @@ const (
 )
 
 type Game struct {
-	State      GameState
-	Deck       *Deck
-	Players    []*Player
-	DealerHand *Hand
-	BetTime    int
+	State              GameState
+	Deck               *Deck
+	Players            []*Player
+	DealerHand         *Hand
+	BetTime            int
+	CurrentPlayerIndex int
+	activePlayers      []*Player
 }
 
 func NewGame() *Game {
@@ -109,73 +127,44 @@ func (g *Game) StartResolvingBets() error {
 	return nil
 }
 
-func (g *Game) HandleBets() {
-	tick := time.NewTimer(time.Duration(g.BetTime) * time.Second)
-
-	wait := false
-	timerExpired := false
-	go func() {
-		<-tick.C
-		timerExpired = true
-	}()
-	for {
-		for _, player := range g.Players {
-			if player.Bet == 0 {
-				wait = true
-			}
-		}
-		if !wait || timerExpired {
-			g.StartDealing()
-			return
-		}
+func (g *Game) DealCards() error {
+	if g.State != DEALING {
+		return fmt.Errorf("Cannot deal when not in dealing state. CurrentState=%s", g.State)
 	}
-}
-
-func (g *Game) HandleDealing() {
-	g.DealerHand.Cards = make([]card, 2)
-	for _, player := range g.Players {
-		player.Hand.Cards = make([]card, 2)
+	g.DealerHand = NewHand()
+	g.activePlayers = g.ActivePlayers()
+	for _, player := range g.activePlayers {
+		player.Hand = NewHand()
 	}
 	// Deal Player Cards
-	for i := range 2 {
-		for _, player := range g.Players {
+	for range 2 {
+		for _, player := range g.activePlayers {
 			card, err := g.Deck.DrawCard()
 			if err != nil {
 				slog.Error("Unable to deal card to player", "error", err)
 			}
-			player.Hand.Cards[i] = card
+			player.Hand.AddCard(card)
 		}
 	}
-	for i := range 2 {
+	for range 2 {
 		card, err := g.Deck.DrawCard()
 		if err != nil {
 			slog.Error("Unable to deal card to dealer", "error", err)
 		}
-		g.DealerHand.Cards[i] = card
+		g.DealerHand.AddCard(card)
 	}
+	g.StartPlayerTurn()
+	return nil
 }
 
-func (g *Game) HandlePlayerTurns() {
-	// TODO: Handle player turns. Game should wait 15 seconds for player to decide to hit, stay, stand, split, double, etc...
-	for _, player := range g.Players {
-		timerExpired := false
-		go func() {
-			tick := time.NewTimer(time.Duration(g.BetTime) * time.Second)
-			<-tick.C
-			timerExpired = true
-		}()
-		for {
-			if player.State != WAITING_FOR_ACTION || timerExpired {
-				break
-			}
-		}
-	}
-	g.StartDealerTurn()
+func (g *Game) Stay(p *Player) error {
+	p.State = DONE
+	return nil
 }
 
-func (g *Game) HandleDealerTurn() {
-	// TODO: Handle the dealer logic here. Update the game state
-	g.StartResolvingBets()
+func (g *Game) Hit(p *Player) error {
+	// handle hit
+	return nil
 }
 
 func (g *Game) ResolveBets() {
@@ -183,22 +172,67 @@ func (g *Game) ResolveBets() {
 	g.StartBetting()
 }
 
-func (g *Game) Run() error {
-	// The orchestrator for the game. The game loop as they say
-	for {
-		switch g.State {
-		case WAITING_FOR_BETS:
-			g.HandleBets()
-		case DEALING:
-			g.HandleDealing()
-		case PLAYER_TURN:
-			g.HandlePlayerTurns()
-		case DEALER_TURN:
-			g.HandleDealerTurn()
-		case RESOLVING_BETS:
-			// TODO
-		default:
-			return fmt.Errorf("Unknown state reached for game %#v", g.State)
+func (g *Game) CurrentPlayer() *Player {
+	return g.activePlayers[g.CurrentPlayerIndex]
+}
+
+// func (g *Game) Run() error {
+// 	// The orchestrator for the game. The game loop as they say
+// 	for {
+// 		switch g.State {
+// 		case WAITING_FOR_BETS:
+// 			g.HandleBets()
+// 		case DEALING:
+// 			g.HandleDealing()
+// 		case PLAYER_TURN:
+// 			g.HandlePlayerTurns()
+// 		case DEALER_TURN:
+// 			g.HandleDealerTurn()
+// 		case RESOLVING_BETS:
+// 			// TODO
+// 		default:
+// 			return fmt.Errorf("Unknown state reached for game %#v", g.State)
+// 		}
+// 	}
+// }
+
+func (g *Game) PlaceBet(p *Player, bet int) error {
+	if !slices.Contains(g.Players, p) {
+		return fmt.Errorf("Player %d not in this game", p.ID)
+	}
+	if g.State != WAITING_FOR_BETS {
+		return fmt.Errorf("game is not in proper state to accept bets. CurrentState=%#v", g.State)
+	}
+	i := slices.Index(g.Players, p)
+	err := p.ValidateBet(bet)
+	if err != nil {
+		return err
+	}
+	g.Players[i].Bet = bet
+	return nil
+}
+
+func (p *Player) ValidateBet(bet int) error {
+	if bet < 1 {
+		return fmt.Errorf("Bets cannot be negative")
+	}
+	if bet > p.Wallet {
+		return fmt.Errorf("Bet cannot be higher than current wallet amount")
+	}
+	return nil
+}
+
+func (g *Game) NextPlayer() bool {
+	g.CurrentPlayerIndex++
+	return g.CurrentPlayerIndex < len(g.ActivePlayers())
+}
+
+func (g *Game) ActivePlayers() []*Player {
+	active := []*Player{}
+	for _, p := range g.Players {
+		if p != nil && p.State != SITTING {
+			active = append(active, p)
 		}
 	}
+	return active
 }

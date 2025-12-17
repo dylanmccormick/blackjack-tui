@@ -170,8 +170,82 @@ func TestAddPlayer(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Expected to get an error adding player 6. got=%#v", err)
 	}
-	t.Log(err)
 }
 
-func TestControlFlow(t *testing.T) {
+func TestPlaceBet(t *testing.T) {
+	game := NewGame()
+	p1 := &Player{ID: 1, Wallet: 10}
+	p2 := &Player{ID: 2, Wallet: 1}
+	game.AddPlayer(p1)
+	game.AddPlayer(p2)
+	err := game.PlaceBet(p1, 5)
+	if err != nil {
+		t.Fatalf("No error expected for placing bet. got=%#v", err)
+	}
+	err = game.PlaceBet(p2, 5)
+	if err == nil {
+		t.Fatalf("Error expected for placing bet, but got nil")
+	}
+	err = game.PlaceBet(p2, -5)
+	if err == nil {
+		t.Fatalf("Error expected for placing negative bet, but got nil")
+	}
+}
+
+func TestNextPlayer(t *testing.T) {
+	game := NewGame()
+	p1 := &Player{ID: 1, Wallet: 10, State: BETS_MADE}
+	p2 := &Player{ID: 2, Wallet: 1, State: BETS_MADE}
+	p3 := &Player{ID: 3, Wallet: 1, State: BETS_MADE}
+	game.AddPlayer(p1)
+	game.AddPlayer(p2)
+	game.AddPlayer(p3)
+	game.State = PLAYER_TURN
+	res := game.NextPlayer()
+	if !res {
+		t.Fatalf("Incorrect result for next player. expected=%v got=%v", true, res)
+	}
+	res = game.NextPlayer()
+	if !res {
+		t.Fatalf("Incorrect result for next player. expected=%v got=%v", true, res)
+	}
+	res = game.NextPlayer()
+	if res {
+		t.Fatalf("Incorrect result for next player. expected=%v got=%v", false, res)
+	}
+}
+
+func TestGameFlow(t *testing.T) {
+	game := NewGame()
+	p1 := &Player{ID: 1, Wallet: 10, State: BETTING}
+	err := game.AddPlayer(p1)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	err = game.PlaceBet(p1, 5)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	game.StartDealing()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	game.DealCards()
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if game.State != PLAYER_TURN {
+		t.Fatalf("Game in incorrect state. expected=%s got=%s", PLAYER_TURN, game.State)
+	}
+	if game.CurrentPlayer() != p1 {
+		t.Fatalf("Got incorrect player as current player. expected=%#v got=%#v", p1, game.CurrentPlayer())
+	}
+	err = game.Hit(p1)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	err = game.Stay(p1)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
 }
