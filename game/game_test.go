@@ -219,33 +219,49 @@ func TestGameFlow(t *testing.T) {
 	game := NewGame()
 	p1 := &Player{ID: 1, Wallet: 10, State: BETTING}
 	err := game.AddPlayer(p1)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	genericErrHelper(t, err)
 	err = game.PlaceBet(p1, 5)
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	genericErrHelper(t, err)
 	game.StartDealing()
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	genericErrHelper(t, err)
 	game.DealCards()
-	if err != nil {
-		t.Fatalf("%v", err)
-	}
+	genericErrHelper(t, err)
 	if game.State != PLAYER_TURN {
 		t.Fatalf("Game in incorrect state. expected=%s got=%s", PLAYER_TURN, game.State)
 	}
 	if game.CurrentPlayer() != p1 {
 		t.Fatalf("Got incorrect player as current player. expected=%#v got=%#v", p1, game.CurrentPlayer())
 	}
-	err = game.Hit(p1)
+	err = game.Stay(p1)
+	genericErrHelper(t, err)
+	err = game.PlayDealer()
+	genericErrHelper(t, err)
+	err = game.ResolveBets()
+	genericErrHelper(t, err)
+	if game.State != WAITING_FOR_BETS {
+		t.Fatalf("Game in incorrect state. expected=%s got=%s", WAIT_FOR_START, game.State)
+	}
+}
+
+func genericErrHelper(t *testing.T, err error) {
 	if err != nil {
 		t.Fatalf("%v", err)
 	}
-	err = game.Stay(p1)
-	if err != nil {
-		t.Fatalf("%v", err)
+}
+
+func TestGameFlowErrors(t *testing.T) {
+	game := NewGame()
+	p1 := &Player{ID: 1, Wallet: 10, State: BETTING}
+	err := game.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = game.PlaceBet(p1, 5)
+	genericErrHelper(t, err)
+	err = game.PlayDealer()
+	if err == nil {
+		t.Fatalf("Expected error from game.PlayDealer(). got nil")
+	}
+	err = game.Hit(p1)
+	if err == nil {
+		t.Fatalf("Expected error from game.Hit(). got nil")
 	}
 }

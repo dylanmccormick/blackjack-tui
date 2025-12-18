@@ -27,7 +27,8 @@ const (
 )
 
 const (
-	WAITING_FOR_BETS GameState = iota
+	WAIT_FOR_START GameState = iota
+	WAITING_FOR_BETS
 	DEALING
 	PLAYER_TURN
 	DEALER_TURN
@@ -36,6 +37,8 @@ const (
 
 func (gs GameState) String() string {
 	switch gs {
+	case WAIT_FOR_START:
+		return "WAIT_FOR_START"
 	case WAITING_FOR_BETS:
 		return "WAITING_FOR_BETS"
 	case DEALING:
@@ -68,11 +71,12 @@ type Game struct {
 
 func NewGame() *Game {
 	return &Game{
-		State:      WAITING_FOR_BETS,
-		Deck:       CreateDeck(DECK_COUNT, CUT_LOCATION), // TODO: Get from config file
-		Players:    make([]*Player, PLAYER_LIMIT),        // This can change. Maybe a table can have 6 players?
-		DealerHand: &Hand{},
-		BetTime:    30, // TODO: Get from Config file
+		State:              WAITING_FOR_BETS,
+		Deck:               CreateDeck(DECK_COUNT, CUT_LOCATION), // TODO: Get from config file
+		Players:            make([]*Player, PLAYER_LIMIT),        // This can change. Maybe a table can have 6 players?
+		DealerHand:         &Hand{},
+		BetTime:            30, // TODO: Get from Config file
+		CurrentPlayerIndex: 0,
 	}
 }
 
@@ -88,48 +92,54 @@ func (g *Game) AddPlayer(p *Player) error {
 }
 
 func (g *Game) StartBetting() error {
-	if g.State != RESOLVING_BETS {
-		return fmt.Errorf("GameState WAITING_FOR_BETS is not reachable from state: %#v", g.State)
+	err := g.checkState(RESOLVING_BETS, "StartBetting")
+	if err != nil {
+		return err
 	}
 	g.State = WAITING_FOR_BETS
 	return nil
 }
 
 func (g *Game) StartDealing() error {
-	if g.State != WAITING_FOR_BETS {
-		return fmt.Errorf("GameState DEALING is not reachable from state: %#v", g.State)
+	err := g.checkState(WAITING_FOR_BETS, "StartDealing")
+	if err != nil {
+		return err
 	}
 	g.State = DEALING
 	return nil
 }
 
 func (g *Game) StartPlayerTurn() error {
-	if g.State != DEALING {
-		return fmt.Errorf("GameState PLAYER_TURN is not reachable from state: %#v", g.State)
+	err := g.checkState(DEALING, "StartPlayerTurn")
+	if err != nil {
+		return err
 	}
 	g.State = PLAYER_TURN
 	return nil
 }
 
 func (g *Game) StartDealerTurn() error {
-	if g.State != PLAYER_TURN {
-		return fmt.Errorf("GameState DEALER_TURN is not reachable from state: %#v", g.State)
+	err := g.checkState(PLAYER_TURN, "StartDealerTurn")
+	if err != nil {
+		return err
 	}
 	g.State = DEALER_TURN
 	return nil
 }
 
 func (g *Game) StartResolvingBets() error {
-	if g.State != DEALER_TURN {
-		return fmt.Errorf("GameState RESOLVING_BETS is not reachable from state: %#v", g.State)
+	err := g.checkState(DEALER_TURN, "StartResolvingBets")
+	if err != nil {
+		return err
 	}
 	g.State = RESOLVING_BETS
 	return nil
 }
 
 func (g *Game) DealCards() error {
-	if g.State != DEALING {
-		return fmt.Errorf("Cannot deal when not in dealing state. CurrentState=%s", g.State)
+	err := g.checkState(DEALING, "DealCards")
+	if err != nil {
+		return err
 	}
 	g.DealerHand = NewHand()
 	g.activePlayers = g.ActivePlayers()
@@ -153,58 +163,63 @@ func (g *Game) DealCards() error {
 		}
 		g.DealerHand.AddCard(card)
 	}
-	g.StartPlayerTurn()
-	return nil
+	return g.StartPlayerTurn()
 }
 
 func (g *Game) Stay(p *Player) error {
+	err := g.checkState(PLAYER_TURN, "Stay")
+	if err != nil {
+		return err
+	}
+	if p != g.CurrentPlayer() {
+		return fmt.Errorf("It is not Player %d's turn", p.ID)
+	}
 	p.State = DONE
+	if !g.NextPlayer() {
+		slog.Info("Starting dealer turn")
+		g.StartDealerTurn()
+	}
 	return nil
 }
 
 func (g *Game) Hit(p *Player) error {
+	err := g.checkState(PLAYER_TURN, "Hit")
+	if err != nil {
+		return err
+	}
+	if p != g.CurrentPlayer() {
+		return fmt.Errorf("It is not Player %d's turn", p.ID)
+	}
 	// handle hit
 	return nil
 }
 
-func (g *Game) ResolveBets() {
+func (g *Game) ResolveBets() error {
+	err := g.checkState(RESOLVING_BETS, "ResolveBets")
+	if err != nil {
+		return err
+	}
 	// TODO: Resolve bets
-	g.StartBetting()
+	return g.StartBetting()
 }
 
 func (g *Game) CurrentPlayer() *Player {
+	if len(g.activePlayers) == 0 {
+		g.activePlayers = g.ActivePlayers()
+	}
 	return g.activePlayers[g.CurrentPlayerIndex]
 }
 
-// func (g *Game) Run() error {
-// 	// The orchestrator for the game. The game loop as they say
-// 	for {
-// 		switch g.State {
-// 		case WAITING_FOR_BETS:
-// 			g.HandleBets()
-// 		case DEALING:
-// 			g.HandleDealing()
-// 		case PLAYER_TURN:
-// 			g.HandlePlayerTurns()
-// 		case DEALER_TURN:
-// 			g.HandleDealerTurn()
-// 		case RESOLVING_BETS:
-// 			// TODO
-// 		default:
-// 			return fmt.Errorf("Unknown state reached for game %#v", g.State)
-// 		}
-// 	}
-// }
-
 func (g *Game) PlaceBet(p *Player, bet int) error {
+	err := g.checkState(WAITING_FOR_BETS, "PlaceBet")
+	if err != nil {
+		return err
+	}
 	if !slices.Contains(g.Players, p) {
 		return fmt.Errorf("Player %d not in this game", p.ID)
 	}
-	if g.State != WAITING_FOR_BETS {
-		return fmt.Errorf("game is not in proper state to accept bets. CurrentState=%#v", g.State)
-	}
 	i := slices.Index(g.Players, p)
-	err := p.ValidateBet(bet)
+	err = p.ValidateBet(bet)
 	if err != nil {
 		return err
 	}
@@ -234,5 +249,24 @@ func (g *Game) ActivePlayers() []*Player {
 			active = append(active, p)
 		}
 	}
+	if len(active) < 1 {
+		slog.Error("No active players")
+	}
 	return active
+}
+
+func (g *Game) PlayDealer() error {
+	err := g.checkState(DEALER_TURN, "PlayDealer")
+	if err != nil {
+		return err
+	}
+	g.StartResolvingBets()
+	return nil
+}
+
+func (g *Game) checkState(expected GameState, method string) error {
+	if g.State != expected {
+		return fmt.Errorf("Method %s() cannot be run from state %s", method, g.State)
+	}
+	return nil
 }
