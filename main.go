@@ -6,9 +6,7 @@ import (
 	"github.com/dylanmccormick/blackjack-tui/game"
 )
 
-type Player struct {
-	ID int // TODO: Change this so it's unique later (for actually handling connections)
-}
+
 
 func main() {
 	d := game.CreateDeck(1, 65)
