@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"log/slog"
+	"math"
 	"slices"
 )
 
@@ -35,6 +36,22 @@ const (
 	RESOLVING_BETS
 )
 
+func (ps PlayerState) String() string {
+	switch ps {
+	case BETTING:
+		return "BETTING"
+	case BETS_MADE:
+		return "BETS_MADE"
+	case WAITING_FOR_ACTION:
+		return "WAITING_FOR_ACTION"
+	case DONE:
+		return "DONE"
+	case SITTING:
+		return "SITTING"
+	}
+	return "UNKNOWN"
+}
+
 func (gs GameState) String() string {
 	switch gs {
 	case WAIT_FOR_START:
@@ -54,10 +71,11 @@ func (gs GameState) String() string {
 }
 
 const (
-	PLAYER_LIMIT int = 5
-	DECK_COUNT   int = 6
-	CUT_LOCATION int = 150
+	PLAYER_LIMIT     int  = 5
+	DECK_COUNT       int  = 6
+	CUT_LOCATION     int  = 150
 )
+var StandOnSoft17 bool = true
 
 type Game struct {
 	State              GameState
@@ -145,6 +163,7 @@ func (g *Game) DealCards() error {
 	g.activePlayers = g.ActivePlayers()
 	for _, player := range g.activePlayers {
 		player.Hand = NewHand()
+		player.State = WAITING_FOR_ACTION
 	}
 	// Deal Player Cards
 	for range 2 {
@@ -174,11 +193,7 @@ func (g *Game) Stay(p *Player) error {
 	if p != g.CurrentPlayer() {
 		return fmt.Errorf("It is not Player %d's turn", p.ID)
 	}
-	p.State = DONE
-	if !g.NextPlayer() {
-		slog.Info("Starting dealer turn")
-		g.StartDealerTurn()
-	}
+	g.endPlayerTurn(p)
 	return nil
 }
 
@@ -190,7 +205,31 @@ func (g *Game) Hit(p *Player) error {
 	if p != g.CurrentPlayer() {
 		return fmt.Errorf("It is not Player %d's turn", p.ID)
 	}
-	// handle hit
+
+	// add card to hand
+	c, err := g.Deck.DrawCard()
+	if err != nil {
+		return err
+	}
+	p.Hand.AddCard(c)
+
+	// update player state
+	if p.Hand.GetState() == BUST {
+		g.endPlayerTurn(p)
+	}
+
+	return nil
+}
+
+func (g *Game) endPlayerTurn(p *Player) error {
+	if p != g.CurrentPlayer() {
+		return fmt.Errorf("It is not Player %d's turn", p.ID)
+	}
+	p.State = DONE
+	if !g.NextPlayer() {
+		slog.Info("Starting dealer turn")
+		g.StartDealerTurn()
+	}
 	return nil
 }
 
@@ -199,8 +238,42 @@ func (g *Game) ResolveBets() error {
 	if err != nil {
 		return err
 	}
-	// TODO: Resolve bets
+	for _, player := range g.activePlayers {
+		winAmt := g.calculatePayout(player)
+		player.Wallet += winAmt
+	}
 	return g.StartBetting()
+}
+
+func (g *Game) calculatePayout(p *Player) int {
+	pVal := p.Hand.GetValue()
+	pState := p.Hand.GetState()
+	dVal := g.DealerHand.GetValue()
+	dState := g.DealerHand.GetState()
+	if pState == BUST {
+		return 0
+	}
+	if pState == BLACKJACK && dState == BLACKJACK {
+		return p.Bet
+	}
+	if pVal == dVal && dState != BLACKJACK {
+		if pState == BLACKJACK && dState != BLACKJACK {
+			return int(math.Floor(float64(p.Bet)*float64(1.5))) + p.Bet
+		}
+		return p.Bet // push
+	}
+
+	// Win Conditions. Player > dealer. Player is live when dealer busts. BlackJack, but not if dealer also gets blackjack
+	if pVal > dVal || g.DealerHand.GetState() == BUST {
+		if pState == BLACKJACK {
+			// player won with blackjack
+			return int(math.Floor(float64(p.Bet)*float64(1.5))) + p.Bet
+		}
+		// player won regular style
+		return p.Bet * 2
+	}
+	// player did not win
+	return 0
 }
 
 func (g *Game) CurrentPlayer() *Player {
@@ -224,6 +297,7 @@ func (g *Game) PlaceBet(p *Player, bet int) error {
 		return err
 	}
 	g.Players[i].Bet = bet
+	g.Players[i].Wallet -= bet
 	return nil
 }
 
@@ -259,6 +333,23 @@ func (g *Game) PlayDealer() error {
 	err := g.checkState(DEALER_TURN, "PlayDealer")
 	if err != nil {
 		return err
+	}
+hitPhase:
+	for g.DealerHand.GetValue() < 17 {
+		c, err := g.Deck.DrawCard()
+		if err != nil {
+			return err
+		}
+		g.DealerHand.AddCard(c)
+	}
+
+	if g.DealerHand.GetValue() == 17 && g.DealerHand.IsSoft() && !StandOnSoft17 {
+		c, err := g.Deck.DrawCard()
+		if err != nil {
+			return err
+		}
+		g.DealerHand.AddCard(c)
+		goto hitPhase
 	}
 	g.StartResolvingBets()
 	return nil

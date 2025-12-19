@@ -222,6 +222,9 @@ func TestGameFlow(t *testing.T) {
 	genericErrHelper(t, err)
 	err = game.PlaceBet(p1, 5)
 	genericErrHelper(t, err)
+	if p1.Wallet != 5 {
+		t.Errorf("player wallet not updated when betting. expected=%d got=%d", 5, p1.Wallet)
+	}
 	game.StartDealing()
 	genericErrHelper(t, err)
 	game.DealCards()
@@ -263,5 +266,169 @@ func TestGameFlowErrors(t *testing.T) {
 	err = game.Hit(p1)
 	if err == nil {
 		t.Fatalf("Expected error from game.Hit(). got nil")
+	}
+}
+
+func TestCalculatePayout(t *testing.T) {
+	suit := suit("spade")
+	tests := []struct {
+		PlayerHand     *Hand
+		DealerHand     *Hand
+		ExpectedPayout int
+	}{
+		{&Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, 0},
+		{&Hand{Cards: []card{{suit, ACE}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, 25},
+		{&Hand{Cards: []card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, 20},
+		{&Hand{Cards: []card{{suit, 10}, {suit, 5}, {suit, 5}, {suit, ACE}}}, &Hand{Cards: []card{{suit, 10}, {suit, ACE}}}, 0},
+		{&Hand{Cards: []card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}}}, 10},
+	}
+	g := NewGame()
+	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
+	err := g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	for _, tt := range tests {
+		g.DealerHand = tt.DealerHand
+		p1.Hand = tt.PlayerHand
+		payout := g.calculatePayout(p1)
+		if payout != tt.ExpectedPayout {
+			t.Errorf("payout calculation incorrect. expected=%d got=%d", tt.ExpectedPayout, payout)
+		}
+	}
+}
+
+func TestHitUntilBust(t *testing.T) {
+	suit := suit("spade")
+	g := NewGame()
+	g.Deck.Cards = append(
+		[]card{
+			{suit, 10}, // player cards
+			{suit, 10},
+			{suit, 10}, // dealer cards
+			{suit, 10},
+			{suit, 10}, // busting card (player)
+		},
+		g.Deck.Cards...,
+	)
+	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
+	err := g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartDealing()
+	genericErrHelper(t, err)
+	err = g.DealCards() // bet is already set in player struct
+	genericErrHelper(t, err)
+	err = g.Hit(p1) // This should bust.
+	genericErrHelper(t, err)
+	if p1.State != DONE {
+		t.Fatalf("player state not advanced after busting. expected=%s got=%s", DONE, p1.State)
+	}
+	if g.State != DEALER_TURN {
+		t.Fatalf("incorrect state after player turn ended. expected=%s got=%s", DEALER_TURN, g.State)
+	}
+}
+
+func TestHitUntilStay(t *testing.T) {
+	suit := suit("spade")
+	g := NewGame()
+	g.Deck.Cards = append(
+		[]card{
+			{suit, 2}, // player cards
+			{suit, 2},
+			{suit, 10}, // dealer cards
+			{suit, 10},
+			{suit, 2}, // busting card (player)
+			{suit, 2},
+			{suit, 2},
+			{suit, 2},
+			{suit, 2},
+			{suit, 2},
+			{suit, 2},
+			{suit, 2},
+		},
+		g.Deck.Cards...,
+	)
+	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
+	err := g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartDealing()
+	genericErrHelper(t, err)
+	err = g.DealCards() // bet is already set in player struct
+	genericErrHelper(t, err)
+	for range 8 {
+		err = g.Hit(p1) // This should bust.
+		genericErrHelper(t, err)
+		if p1.State != WAITING_FOR_ACTION {
+			t.Fatalf("player state incorrectly advanced after hitting. expected=%s got=%s", WAITING_FOR_ACTION, p1.State)
+		}
+		if g.State != PLAYER_TURN {
+			t.Fatalf("incorrect state during player turn. expected=%s got=%s", PLAYER_TURN, g.State)
+		}
+	}
+	err = g.Hit(p1) // This should bust.
+	genericErrHelper(t, err)
+	if p1.State != DONE {
+		t.Fatalf("player state not advanced after busting. expected=%s got=%s", DONE, p1.State)
+	}
+	if g.State != DEALER_TURN {
+		t.Fatalf("incorrect state after player turn ended. expected=%s got=%s", DEALER_TURN, g.State)
+	}
+}
+
+func TestDealerLogicHitSoft17(t *testing.T) {
+	StandOnSoft17 = false
+	suit := suit("spade")
+	g := NewGame()
+	g.Deck.Cards = append(
+		[]card{
+			{suit, 10}, // player cards
+			{suit, 10},
+			{suit, ACE}, // dealer cards
+			{suit, 6},
+			{suit, 10},
+		},
+		g.Deck.Cards...,
+	)
+	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
+	err := g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartDealing()
+	genericErrHelper(t, err)
+	err = g.DealCards() // bet is already set in player struct
+	genericErrHelper(t, err)
+	err = g.Stay(p1)
+	genericErrHelper(t, err)
+	err = g.PlayDealer()
+	genericErrHelper(t, err)
+	if len(g.DealerHand.Cards) != 3 {
+		t.Fatalf("dealer logic incorrect. dealer has incorrect amount of cards. expected=%d got=%d", 3, len(g.DealerHand.Cards))
+	}
+}
+
+func TestDealerLogicStandSoft17(t *testing.T) {
+	StandOnSoft17 = true
+	suit := suit("spade")
+	g := NewGame()
+	g.Deck.Cards = append(
+		[]card{
+			{suit, 10}, // player cards
+			{suit, 10},
+			{suit, ACE}, // dealer cards
+			{suit, 6},
+			{suit, 10},
+		},
+		g.Deck.Cards...,
+	)
+	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
+	err := g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartDealing()
+	genericErrHelper(t, err)
+	err = g.DealCards() // bet is already set in player struct
+	genericErrHelper(t, err)
+	err = g.Stay(p1)
+	genericErrHelper(t, err)
+	err = g.PlayDealer()
+	genericErrHelper(t, err)
+	if len(g.DealerHand.Cards) != 2 {
+		t.Fatalf("dealer logic incorrect. dealer has incorrect amount of cards. expected=%d got=%d", 2, len(g.DealerHand.Cards))
 	}
 }
