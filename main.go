@@ -30,14 +30,6 @@ const (
 	maxMessageSize = 512
 )
 
-type Hub struct {
-	clients    map[*Client]bool
-	register   chan *Client
-	unregister chan *Client
-	inbound    chan []byte
-	outbound   chan []byte
-}
-
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -66,13 +58,13 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		conn: conn,
 		hub:  hub,
-		send: make(chan []byte),
+		send: make(chan []byte, 10),
 	}
 	slog.Info("Registering client to hub")
 	client.hub.register <- client
 
 	go client.readPump()
-	go client.readPump()
+	go client.writePump()
 }
 
 func (c *Client) readPump() {
@@ -89,36 +81,43 @@ func (c *Client) readPump() {
 			slog.Error("retrieved an error", "error", err)
 			break
 		}
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
 		c.hub.inbound <- message
 	}
 }
 
 func (c *Client) writePump() {
-}
+	ticker := time.NewTicker(pingPeriod)
+	defer func() {
+		ticker.Stop()
+		c.conn.Close()
+	}()
 
-func newHub() *Hub {
-	return &Hub{
-		clients:    make(map[*Client]bool),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		inbound:    make(chan []byte),
-		outbound:   make(chan []byte),
-	}
-}
-
-func (h *Hub) run() {
 	for {
 		select {
-		case client := <-h.register:
-			h.clients[client] = true
-		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
+		case message, ok := <-c.send:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if !ok {
+				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				return
 			}
-		case message := <-h.inbound:
-			slog.Info("Received message", "message", string(message))
+			w, err := c.conn.NextWriter(websocket.TextMessage)
+			if err != nil {
+				return
+			}
+			w.Write(message)
+			for range len(c.send) {
+				w.Write(newline)
+				w.Write(<-c.send)
+			}
+			if err := w.Close(); err != nil {
+				return
+			}
+		case <-ticker.C:
+			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
 		}
 	}
 }
