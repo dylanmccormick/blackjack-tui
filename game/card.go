@@ -5,7 +5,7 @@ import "fmt"
 type (
 	suit     string
 	cardRank int
-	card     struct {
+	Card     struct {
 		Suit suit
 		Rank cardRank
 	}
@@ -43,7 +43,7 @@ func ValToString(i cardRank) (string, error) {
 	return s, nil
 }
 
-func calculateValue(c []card) (int, bool) {
+func calculateValue(c []Card) (int, bool) {
 	value := 0
 	highAces := 0
 	for _, card := range c {
@@ -64,6 +64,6 @@ func calculateValue(c []card) (int, bool) {
 	return value, highAces > 0
 }
 
-func (c card) Value() int {
+func (c Card) Value() int {
 	return int(c.Rank)
 }
