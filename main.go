@@ -16,11 +16,11 @@ var (
 )
 
 type Client struct {
-	conn *websocket.Conn
-	mu   sync.Mutex
-	id   string
-	hub  *Hub
-	send chan []byte
+	conn  *websocket.Conn
+	mu    sync.Mutex
+	id    string
+	table *Table
+	send  chan []byte
 }
 
 const (
@@ -36,11 +36,11 @@ var upgrader = websocket.Upgrader{
 }
 
 func main() {
-	hub := newHub()
-	go hub.run()
+	table := newTable()
+	go table.run()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Received connection")
-		serveWs(hub, w, r)
+		serveWs(table, w, r)
 	})
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
@@ -48,20 +48,20 @@ func main() {
 	}
 }
 
-func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
-	// serve ws should take the client and register them with the hub. They should then go through the onboarding process... (login, authenticate, provide a username)
+func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
+	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("An error occurred upgrading the http connection", "error", err)
 		panic(err)
 	}
 	client := &Client{
-		conn: conn,
-		hub:  hub,
-		send: make(chan []byte, 10),
+		conn:  conn,
+		table: table,
+		send:  make(chan []byte, 10),
 	}
-	slog.Info("Registering client to hub")
-	client.hub.register <- client
+	slog.Info("Registering client to table")
+	client.table.register <- client
 
 	go client.readPump()
 	go client.writePump()
@@ -69,7 +69,7 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 func (c *Client) readPump() {
 	defer func() {
-		c.hub.unregister <- c
+		c.table.unregister <- c
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -82,7 +82,7 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
-		c.hub.inbound <- message
+		c.table.inbound <- message
 	}
 }
 
