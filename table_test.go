@@ -20,7 +20,7 @@ func TestTableClientInteractions(t *testing.T) {
 	client := &Client{
 		table: table,
 		send:  make(chan []byte, 10),
-		id:    "test",
+		id:    1,
 	}
 
 	table.register <- client

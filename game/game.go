@@ -71,10 +71,11 @@ func (gs GameState) String() string {
 }
 
 const (
-	PLAYER_LIMIT     int  = 5
-	DECK_COUNT       int  = 6
-	CUT_LOCATION     int  = 150
+	PLAYER_LIMIT int = 5
+	DECK_COUNT   int = 6
+	CUT_LOCATION int = 150
 )
+
 var StandOnSoft17 bool = true
 
 type Game struct {
@@ -88,6 +89,7 @@ type Game struct {
 }
 
 func NewGame() *Game {
+	slog.Debug("Creating game")
 	return &Game{
 		State:              WAITING_FOR_BETS,
 		Deck:               CreateDeck(DECK_COUNT, CUT_LOCATION), // TODO: Get from config file
@@ -95,6 +97,16 @@ func NewGame() *Game {
 		DealerHand:         &Hand{},
 		BetTime:            30, // TODO: Get from Config file
 		CurrentPlayerIndex: 0,
+	}
+}
+
+func NewPlayer(id int) *Player {
+	slog.Debug("Creating new player")
+	return &Player{
+		ID:     id,
+		Hand:   &Hand{},
+		Bet:    0,
+		Wallet: 100,
 	}
 }
 
@@ -242,7 +254,17 @@ func (g *Game) ResolveBets() error {
 		winAmt := g.calculatePayout(player)
 		player.Wallet += winAmt
 	}
+	g.reset()
 	return g.StartBetting()
+}
+
+func (g *Game) reset() {
+	for _, p := range g.ActivePlayers() {
+		p.Bet = 0
+		p.Hand = &Hand{Cards: []Card{}}
+	}
+	g.DealerHand = &Hand{Cards: []Card{}}
+	g.CurrentPlayerIndex = 0
 }
 
 func (g *Game) calculatePayout(p *Player) int {
@@ -358,6 +380,15 @@ hitPhase:
 func (g *Game) checkState(expected GameState, method string) error {
 	if g.State != expected {
 		return fmt.Errorf("Method %s() cannot be run from state %s", method, g.State)
+	}
+	return nil
+}
+
+func (g *Game) GetPlayer(playerId int) *Player {
+	for _, p := range g.Players {
+		if p.ID == playerId {
+			return p
+		}
 	}
 	return nil
 }

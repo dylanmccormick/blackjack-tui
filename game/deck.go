@@ -7,18 +7,18 @@ import (
 )
 
 type Deck struct {
-	Cards     []card
-	UsedCards []card
+	Cards     []Card
+	UsedCards []Card
 	Threshold int
 }
 
 func CreateDeck(numDecks, threshold int) *Deck {
-	d := &Deck{Cards: make([]card, 52*numDecks), Threshold: threshold}
+	d := &Deck{Cards: make([]Card, 52*numDecks), Threshold: threshold}
 	i := 0
 	for range numDecks {
 		for _, s := range []suit{"club", "diamond", "heart", "spade"} {
 			for _, v := range []cardRank{2, 3, 4, 5, 6, 7, 8, 9, 10, JACK, QUEEN, KING, ACE} {
-				d.Cards[i] = card{Suit: s, Rank: v}
+				d.Cards[i] = Card{Suit: s, Rank: v}
 				i++
 			}
 		}
@@ -30,12 +30,12 @@ func CreateDeck(numDecks, threshold int) *Deck {
 func (d *Deck) Shuffle() {
 	d.Cards = append(d.Cards, d.UsedCards...)
 	d.Cards = Shuffle(d.Cards)
-	d.UsedCards = []card{}
+	d.UsedCards = []Card{}
 }
 
-func (d *Deck) DrawCard() (card, error) {
+func (d *Deck) DrawCard() (Card, error) {
 	if len(d.Cards) == 0 {
-		return card{}, fmt.Errorf("Deck is empty")
+		return Card{}, fmt.Errorf("Deck is empty")
 	}
 	c := d.Cards[0]
 	d.Cards = d.Cards[1:]

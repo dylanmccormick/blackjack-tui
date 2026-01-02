@@ -1,10 +1,15 @@
 package protocol
 
-import "github.com/dylanmccormick/blackjack-tui/game"
+import (
+	"log/slog"
+
+	"github.com/dylanmccormick/blackjack-tui/game"
+)
 
 type HandDTO struct {
-	// Does this need hand value?
 	Cards []CardDTO `json:"cards"`
+	Value int       `json:"value"`
+	State string    `json:"state"`
 }
 
 type CardDTO struct {
@@ -19,7 +24,7 @@ type PlayerDTO struct {
 }
 
 type GameDTO struct {
-	Players    []*PlayerDTO
+	Players    []PlayerDTO
 	DealerHand HandDTO
 }
 
@@ -31,19 +36,34 @@ func CardToDTO(c game.Card) CardDTO {
 }
 
 func HandToDTO(h *game.Hand) HandDTO {
+	slog.Debug("Building hand with DTO")
 	cards := []CardDTO{}
 	for _, c := range h.Cards {
 		cards = append(cards, CardToDTO(c))
 	}
 	return HandDTO{
 		Cards: cards,
+		Value: h.GetValue(),
+		State: h.GetState().String(),
 	}
 }
 
 func PlayerToDTO(p *game.Player) PlayerDTO {
+	slog.Debug("Building player with DTO")
 	return PlayerDTO{
 		Bet:    p.Bet,
 		Wallet: p.Wallet,
 		Hand:   HandToDTO(p.Hand),
+	}
+}
+
+func GameToDTO(g *game.Game) GameDTO {
+	players := []PlayerDTO{}
+	for _, p := range g.ActivePlayers() {
+		players = append(players, PlayerToDTO(p))
+	}
+	return GameDTO{
+		DealerHand: HandToDTO(g.DealerHand),
+		Players:    players,
 	}
 }

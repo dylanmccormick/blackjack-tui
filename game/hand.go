@@ -9,15 +9,29 @@ const (
 	TWENTYONE
 )
 
+func (hs HandState) String() string {
+	switch hs {
+	case LIVE:
+		return "Live"
+	case BUST:
+		return "Bust"
+	case BLACKJACK:
+		return "BlackJack"
+	case TWENTYONE:
+		return "TwentyOne"
+	}
+	return ""
+}
+
 type Hand struct {
-	Cards []card
+	Cards []Card
 }
 
 func NewHand() *Hand {
-	return &Hand{Cards: []card{}}
+	return &Hand{Cards: []Card{}}
 }
 
-func (h *Hand) AddCard(c card) {
+func (h *Hand) AddCard(c Card) {
 	h.Cards = append(h.Cards, c)
 }
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -18,7 +19,7 @@ var (
 type Client struct {
 	conn  *websocket.Conn
 	mu    sync.Mutex
-	id    string
+	id    int
 	table *Table
 	send  chan []byte
 }
@@ -36,6 +37,11 @@ var upgrader = websocket.Upgrader{
 }
 
 func main() {
+	handlerOptions := &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
+	slog.SetDefault(logger)
 	table := newTable()
 	go table.run()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +71,8 @@ func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
 
 	go client.readPump()
 	go client.writePump()
+
+	client.send <- []byte("You are now connected to the table")
 }
 
 func (c *Client) readPump() {

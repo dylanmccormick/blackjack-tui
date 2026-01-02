@@ -6,8 +6,8 @@ type (
 	suit     string
 	cardRank int
 	Card     struct {
-		Suit suit
-		Rank cardRank
+		Suit suit     `json:"suit"`
+		Rank cardRank `json:"rank"`
 	}
 )
 

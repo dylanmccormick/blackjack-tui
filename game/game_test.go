@@ -46,7 +46,7 @@ func TestDeckCompositionShuffle(t *testing.T) {
 
 func TestDeckShuffle(t *testing.T) {
 	deck := CreateDeck(1, 0)
-	previous := make([]card, 52)
+	previous := make([]Card, 52)
 	copy(previous, deck.Cards)
 
 	deck.Shuffle()
@@ -121,17 +121,17 @@ func TestHandValue(t *testing.T) {
 		expectedSoft  bool
 		expectedState HandState
 	}{
-		{Hand{Cards: []card{{suit, ACE}, {suit, KING}}}, 21, true, BLACKJACK},
-		{Hand{Cards: []card{{suit, ACE}, {suit, QUEEN}}}, 21, true, BLACKJACK},
-		{Hand{Cards: []card{{suit, ACE}, {suit, JACK}}}, 21, true, BLACKJACK},
-		{Hand{Cards: []card{{suit, ACE}, {suit, 10}}}, 21, true, BLACKJACK},
-		{Hand{Cards: []card{{suit, ACE}, {suit, ACE}}}, 12, true, LIVE},
-		{Hand{Cards: []card{{suit, ACE}, {suit, ACE}, {suit, ACE}}}, 13, true, LIVE},
-		{Hand{Cards: []card{{suit, KING}, {suit, 10}, {suit, ACE}}}, 21, false, TWENTYONE},
-		{Hand{Cards: []card{{suit, 7}, {suit, 10}, {suit, ACE}}}, 18, false, LIVE},
-		{Hand{Cards: []card{{suit, 3}, {suit, 7}, {suit, ACE}}}, 21, true, TWENTYONE},
-		{Hand{Cards: []card{{suit, 6}, {suit, ACE}}}, 17, true, LIVE}, // soft 17
-		{Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, 30, false, BUST},
+		{Hand{Cards: []Card{{suit, ACE}, {suit, KING}}}, 21, true, BLACKJACK},
+		{Hand{Cards: []Card{{suit, ACE}, {suit, QUEEN}}}, 21, true, BLACKJACK},
+		{Hand{Cards: []Card{{suit, ACE}, {suit, JACK}}}, 21, true, BLACKJACK},
+		{Hand{Cards: []Card{{suit, ACE}, {suit, 10}}}, 21, true, BLACKJACK},
+		{Hand{Cards: []Card{{suit, ACE}, {suit, ACE}}}, 12, true, LIVE},
+		{Hand{Cards: []Card{{suit, ACE}, {suit, ACE}, {suit, ACE}}}, 13, true, LIVE},
+		{Hand{Cards: []Card{{suit, KING}, {suit, 10}, {suit, ACE}}}, 21, false, TWENTYONE},
+		{Hand{Cards: []Card{{suit, 7}, {suit, 10}, {suit, ACE}}}, 18, false, LIVE},
+		{Hand{Cards: []Card{{suit, 3}, {suit, 7}, {suit, ACE}}}, 21, true, TWENTYONE},
+		{Hand{Cards: []Card{{suit, 6}, {suit, ACE}}}, 17, true, LIVE}, // soft 17
+		{Hand{Cards: []Card{{suit, 10}, {suit, 10}, {suit, 10}}}, 30, false, BUST},
 	}
 
 	for i, tt := range tests {
@@ -276,11 +276,11 @@ func TestCalculatePayout(t *testing.T) {
 		DealerHand     *Hand
 		ExpectedPayout int
 	}{
-		{&Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, 0},
-		{&Hand{Cards: []card{{suit, ACE}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, 25},
-		{&Hand{Cards: []card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}, {suit, 10}}}, 20},
-		{&Hand{Cards: []card{{suit, 10}, {suit, 5}, {suit, 5}, {suit, ACE}}}, &Hand{Cards: []card{{suit, 10}, {suit, ACE}}}, 0},
-		{&Hand{Cards: []card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []card{{suit, 10}, {suit, 10}}}, 10},
+		{&Hand{Cards: []Card{{suit, 10}, {suit, 10}, {suit, 10}}}, &Hand{Cards: []Card{{suit, 10}, {suit, 10}, {suit, 10}}}, 0},
+		{&Hand{Cards: []Card{{suit, ACE}, {suit, 10}}}, &Hand{Cards: []Card{{suit, 10}, {suit, 10}, {suit, 10}}}, 25},
+		{&Hand{Cards: []Card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []Card{{suit, 10}, {suit, 10}, {suit, 10}}}, 20},
+		{&Hand{Cards: []Card{{suit, 10}, {suit, 5}, {suit, 5}, {suit, ACE}}}, &Hand{Cards: []Card{{suit, 10}, {suit, ACE}}}, 0},
+		{&Hand{Cards: []Card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []Card{{suit, 10}, {suit, 10}}}, 10},
 	}
 	g := NewGame()
 	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
@@ -300,7 +300,7 @@ func TestHitUntilBust(t *testing.T) {
 	suit := suit("spade")
 	g := NewGame()
 	g.Deck.Cards = append(
-		[]card{
+		[]Card{
 			{suit, 10}, // player cards
 			{suit, 10},
 			{suit, 10}, // dealer cards
@@ -330,7 +330,7 @@ func TestHitUntilStay(t *testing.T) {
 	suit := suit("spade")
 	g := NewGame()
 	g.Deck.Cards = append(
-		[]card{
+		[]Card{
 			{suit, 2}, // player cards
 			{suit, 2},
 			{suit, 10}, // dealer cards
@@ -378,7 +378,7 @@ func TestDealerLogicHitSoft17(t *testing.T) {
 	suit := suit("spade")
 	g := NewGame()
 	g.Deck.Cards = append(
-		[]card{
+		[]Card{
 			{suit, 10}, // player cards
 			{suit, 10},
 			{suit, ACE}, // dealer cards
@@ -408,7 +408,7 @@ func TestDealerLogicStandSoft17(t *testing.T) {
 	suit := suit("spade")
 	g := NewGame()
 	g.Deck.Cards = append(
-		[]card{
+		[]Card{
 			{suit, 10}, // player cards
 			{suit, 10},
 			{suit, ACE}, // dealer cards
