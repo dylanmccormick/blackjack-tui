@@ -24,6 +24,8 @@ func CreateDeck(numDecks, threshold int) *Deck {
 		}
 	}
 
+	d.Shuffle()
+
 	return d
 }
 

@@ -225,7 +225,7 @@ func TestGameFlow(t *testing.T) {
 	if p1.Wallet != 5 {
 		t.Errorf("player wallet not updated when betting. expected=%d got=%d", 5, p1.Wallet)
 	}
-	game.StartDealing()
+	game.StartRound()
 	genericErrHelper(t, err)
 	game.DealCards()
 	genericErrHelper(t, err)
@@ -312,7 +312,7 @@ func TestHitUntilBust(t *testing.T) {
 	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
 	err := g.AddPlayer(p1)
 	genericErrHelper(t, err)
-	err = g.StartDealing()
+	err = g.StartRound()
 	genericErrHelper(t, err)
 	err = g.DealCards() // bet is already set in player struct
 	genericErrHelper(t, err)
@@ -349,7 +349,7 @@ func TestHitUntilStay(t *testing.T) {
 	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
 	err := g.AddPlayer(p1)
 	genericErrHelper(t, err)
-	err = g.StartDealing()
+	err = g.StartRound()
 	genericErrHelper(t, err)
 	err = g.DealCards() // bet is already set in player struct
 	genericErrHelper(t, err)
@@ -390,7 +390,7 @@ func TestDealerLogicHitSoft17(t *testing.T) {
 	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
 	err := g.AddPlayer(p1)
 	genericErrHelper(t, err)
-	err = g.StartDealing()
+	err = g.StartRound()
 	genericErrHelper(t, err)
 	err = g.DealCards() // bet is already set in player struct
 	genericErrHelper(t, err)
@@ -420,7 +420,7 @@ func TestDealerLogicStandSoft17(t *testing.T) {
 	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
 	err := g.AddPlayer(p1)
 	genericErrHelper(t, err)
-	err = g.StartDealing()
+	err = g.StartRound()
 	genericErrHelper(t, err)
 	err = g.DealCards() // bet is already set in player struct
 	genericErrHelper(t, err)

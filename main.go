@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,7 +20,7 @@ var (
 type Client struct {
 	conn  *websocket.Conn
 	mu    sync.Mutex
-	id    int
+	id    uuid.UUID
 	table *Table
 	send  chan []byte
 }
@@ -54,6 +55,15 @@ func main() {
 	}
 }
 
+func generateId(c *websocket.Conn) uuid.UUID {
+	// TODO: Generate uuid from websocket so it's sticky... figure that out later
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		slog.Error("ERROR GENERATING UUID", "error", err)
+	}
+	return uuid
+}
+
 func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
 	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -65,6 +75,7 @@ func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
 		conn:  conn,
 		table: table,
 		send:  make(chan []byte, 10),
+		id:    generateId(conn),
 	}
 	slog.Info("Registering client to table")
 	client.table.register <- client
@@ -90,7 +101,7 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
-		c.table.inbound <- message
+		c.table.inbound <- inboundMessage{message, c}
 	}
 }
 

@@ -5,13 +5,15 @@ import (
 	"log/slog"
 	"math"
 	"slices"
+
+	"github.com/google/uuid"
 )
 
 type (
 	GameState   int
 	PlayerState int
 	Player      struct {
-		ID     int // TODO: Change this so it's unique later (for actually handling connections)
+		ID     uuid.UUID // TODO: Change this so it's unique later (for actually handling connections)
 		State  PlayerState
 		Bet    int // Used per round. How much the player is betting that round
 		Wallet int // Used for a session. How much the player has at a session
@@ -100,7 +102,7 @@ func NewGame() *Game {
 	}
 }
 
-func NewPlayer(id int) *Player {
+func NewPlayer(id uuid.UUID) *Player {
 	slog.Debug("Creating new player")
 	return &Player{
 		ID:     id,
@@ -130,8 +132,8 @@ func (g *Game) StartBetting() error {
 	return nil
 }
 
-func (g *Game) StartDealing() error {
-	err := g.checkState(WAITING_FOR_BETS, "StartDealing")
+func (g *Game) StartRound() error {
+	err := g.checkState(WAITING_FOR_BETS, "StartRound")
 	if err != nil {
 		return err
 	}
@@ -171,6 +173,7 @@ func (g *Game) DealCards() error {
 	if err != nil {
 		return err
 	}
+
 	g.DealerHand = NewHand()
 	g.activePlayers = g.ActivePlayers()
 	for _, player := range g.activePlayers {
@@ -320,6 +323,7 @@ func (g *Game) PlaceBet(p *Player, bet int) error {
 	}
 	g.Players[i].Bet = bet
 	g.Players[i].Wallet -= bet
+	g.Players[i].State = BETS_MADE
 	return nil
 }
 
@@ -341,8 +345,13 @@ func (g *Game) NextPlayer() bool {
 func (g *Game) ActivePlayers() []*Player {
 	active := []*Player{}
 	for _, p := range g.Players {
-		if p != nil && p.State != SITTING {
+		if p == nil {
+			continue
+		}
+		if p.State != SITTING {
 			active = append(active, p)
+		} else {
+			p.State = SITTING
 		}
 	}
 	if len(active) < 1 {
@@ -384,11 +393,20 @@ func (g *Game) checkState(expected GameState, method string) error {
 	return nil
 }
 
-func (g *Game) GetPlayer(playerId int) *Player {
+func (g *Game) GetPlayer(playerId uuid.UUID) *Player {
 	for _, p := range g.Players {
 		if p.ID == playerId {
 			return p
 		}
 	}
 	return nil
+}
+
+func (g *Game) AllPlayersBet() bool {
+	for _, p := range g.Players {
+		if p != nil && p.Bet == 0 {
+			return false
+		}
+	}
+	return true
 }
