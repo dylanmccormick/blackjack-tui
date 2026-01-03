@@ -1,8 +1,6 @@
 package protocol
 
 import (
-	"log/slog"
-
 	"github.com/dylanmccormick/blackjack-tui/game"
 )
 
@@ -36,7 +34,6 @@ func CardToDTO(c game.Card) CardDTO {
 }
 
 func HandToDTO(h *game.Hand) HandDTO {
-	slog.Debug("Building hand with DTO")
 	cards := []CardDTO{}
 	for _, c := range h.Cards {
 		cards = append(cards, CardToDTO(c))
@@ -49,7 +46,6 @@ func HandToDTO(h *game.Hand) HandDTO {
 }
 
 func PlayerToDTO(p *game.Player) PlayerDTO {
-	slog.Debug("Building player with DTO")
 	return PlayerDTO{
 		Bet:    p.Bet,
 		Wallet: p.Wallet,

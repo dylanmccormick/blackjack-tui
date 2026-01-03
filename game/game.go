@@ -229,7 +229,7 @@ func (g *Game) Hit(p *Player) error {
 	p.Hand.AddCard(c)
 
 	// update player state
-	if p.Hand.GetState() == BUST {
+	if p.Hand.GetState() == BUST || p.Hand.GetState() == TWENTYONE{
 		g.endPlayerTurn(p)
 	}
 

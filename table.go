@@ -25,22 +25,24 @@ type Table struct {
 	stopChan   chan struct{}
 	id         string
 
-	maxPlayers int
-	game       *game.Game
-	betTimer   *time.Timer
+	maxPlayers  int
+	game        *game.Game
+	betTimer    *time.Timer
+	actionTimer *time.Timer
 }
 
 func newTable() *Table {
 	return &Table{
-		clients:    make(map[*Client]bool),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		inbound:    make(chan inboundMessage),
-		outbound:   make(chan []byte),
-		stopChan:   make(chan struct{}),
-		id:         "placeholder",
-		game:       game.NewGame(),
-		betTimer:   time.NewTimer(30 * time.Second),
+		clients:     make(map[*Client]bool),
+		register:    make(chan *Client),
+		unregister:  make(chan *Client),
+		inbound:     make(chan inboundMessage),
+		outbound:    make(chan []byte),
+		stopChan:    make(chan struct{}),
+		id:          "placeholder",
+		game:        game.NewGame(),
+		betTimer:    time.NewTimer(30 * time.Second),
+		actionTimer: time.NewTimer(30 * time.Second),
 	}
 }
 
@@ -65,9 +67,15 @@ func (t *Table) run() {
 			t.processMessage(message)
 			t.autoProgress()
 		case <-t.betTimer.C:
-			slog.Info("TIMER EXPIRED")
+			slog.Info("BET TIMER EXPIRED")
 			t.game.StartRound()
 			t.autoProgress()
+		case <-t.actionTimer.C:
+			slog.Info("ACTION TIMER EXPIRED")
+			t.game.Stay(t.game.CurrentPlayer())
+			if t.game.State == game.DEALER_TURN {
+				t.autoProgress()
+			}
 		}
 	}
 }
@@ -101,6 +109,7 @@ func (t *Table) handleCommand(command []string, c *Client) {
 	case "hit":
 		slog.Info("Hitting")
 		t.game.Hit(t.game.GetPlayer(c.id))
+		t.actionTimer.Reset(30 * time.Second)
 	case "stay":
 		t.game.Stay(t.game.GetPlayer(c.id))
 		slog.Info("Standing")
@@ -124,6 +133,7 @@ OuterLoop:
 		case game.DEALING:
 			slog.Info("DEALING CARDS")
 			t.game.DealCards()
+			t.actionTimer.Reset(30 * time.Second)
 		case game.DEALER_TURN:
 			slog.Info("PLAYING DEALER")
 			t.game.PlayDealer()
