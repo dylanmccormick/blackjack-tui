@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dylanmccormick/blackjack-tui/client"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -38,6 +39,19 @@ var upgrader = websocket.Upgrader{
 }
 
 func main() {
+	args := os.Args
+	if len(args) < 2 {
+		os.Exit(1)
+	}
+	switch args[1] {
+	case "tui":
+		client.RunTui()
+	case "server":
+		runServer()
+	}
+}
+
+func runServer() {
 	handlerOptions := &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}
@@ -82,8 +96,6 @@ func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
 
 	go client.readPump()
 	go client.writePump()
-
-	client.send <- []byte("You are now connected to the table")
 }
 
 func (c *Client) readPump() {
@@ -124,6 +136,7 @@ func (c *Client) writePump() {
 			if err != nil {
 				return
 			}
+			slog.Info("Writing message", "message", string(message))
 			w.Write(message)
 			for range len(c.send) {
 				w.Write(newline)

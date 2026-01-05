@@ -586,6 +586,7 @@ Since WebSocket support isn't in stdlib, you'll need to choose:
 
 ---
 
+<!-- I WILL DO THIS AFTER THE TUI... SEEMS LIKE A SMALL POTATOES THING RIGHT NOW -->
 #### Story 2.4: Connection-to-Player Mapping and Session Management
 **As a server**, I need to associate WebSocket connections with player sessions so that I can route messages and handle reconnections.
 

@@ -166,7 +166,15 @@ func NewCard(value, suit int) *Card {
 }
 
 func (c *Card) String() string {
-	return values[c.Value] + suits[c.Suit]
+	color := lipgloss.Color("#FFFFFF")
+	switch c.Suit {
+	case 0, 3:
+		color = lipgloss.Color("#90EE90")
+	case 1, 2:
+		color = lipgloss.Color("#FFCCCC")
+	}
+	style := lipgloss.NewStyle().Foreground(color)
+	return style.Render(values[c.Value] + suits[c.Suit])
 }
 
 func (c *Card) ViewPartial() string {
@@ -241,8 +249,11 @@ func (p *TuiPlayer) renderPlayerZone() string {
 	nameTag := p.Name
 	bet := p.Bet
 	wallet := p.Wallet
-	value := p.Value
-	status := fmt.Sprintf("V:%d B:%d W:%d", value, bet, wallet)
+	valueStr := fmt.Sprintf("%d", (p.Value))
+	if p.Value == -1 {
+		valueStr = "?"
+	}
+	status := fmt.Sprintf("V:%s B:%d W:%d", valueStr, bet, wallet)
 	return lipgloss.JoinVertical(lipgloss.Top, nameTag, renderMultipleCards(p.Cards), status)
 }
 
@@ -336,13 +347,14 @@ func (rm *RootModel) GameMessageToState(msg *protocol.GameDTO) {
 		receivedPlayer := msg.Players[i-1]
 		if len(receivedPlayer.Hand.Cards) > 0 {
 			player.Cards = []*Card{}
+			player.Value = receivedPlayer.Hand.Value
 		}
 		for _, card := range receivedPlayer.Hand.Cards {
 			player.Cards = append(player.Cards, CardToCard(card))
 		}
 		player.Bet = receivedPlayer.Bet
-		player.Value = receivedPlayer.Hand.Value
 		player.Wallet = receivedPlayer.Wallet
+		player.Name = receivedPlayer.Name
 		rm.table.Players[i] = player
 	}
 	dealer := rm.table.Players[0]
@@ -351,8 +363,8 @@ func (rm *RootModel) GameMessageToState(msg *protocol.GameDTO) {
 	}
 	for _, card := range msg.DealerHand.Cards {
 		dealer.Cards = append(dealer.Cards, CardToCard(card))
+		dealer.Value = msg.DealerHand.Value
 	}
-	dealer.Value = msg.DealerHand.Value
 	rm.table.Players[0] = dealer
 }
 
@@ -367,6 +379,7 @@ func CardToCard(pc protocol.CardDTO) *Card {
 	} else if strings.ToLower(pc.Suit) == "club" {
 		card.Suit = 3
 	}
+
 	card.Value = pc.Rank - 1
 
 	return card

@@ -19,6 +19,7 @@ type PlayerDTO struct {
 	Bet    int     `json:"bet"`
 	Wallet int     `json:"wallet"`
 	Hand   HandDTO `json:"hand"`
+	Name   string  `json:"name"`
 }
 
 type GameDTO struct {
@@ -50,6 +51,7 @@ func PlayerToDTO(p *game.Player) PlayerDTO {
 		Bet:    p.Bet,
 		Wallet: p.Wallet,
 		Hand:   HandToDTO(p.Hand),
+		Name:   p.Name,
 	}
 }
 
@@ -59,7 +61,16 @@ func GameToDTO(g *game.Game) GameDTO {
 		players = append(players, PlayerToDTO(p))
 	}
 	return GameDTO{
-		DealerHand: HandToDTO(g.DealerHand),
+		DealerHand: DealerToDTO(g.State, g.DealerHand),
 		Players:    players,
 	}
+}
+
+func DealerToDTO(state game.GameState, h *game.Hand) HandDTO {
+	hand := HandToDTO(h)
+	if state != game.DEALER_TURN && state != game.RESOLVING_BETS && state != game.WAITING_FOR_BETS && len(hand.Cards) > 0 {
+		hand.Cards = hand.Cards[:1]
+		hand.Value = -1
+	}
+	return hand
 }

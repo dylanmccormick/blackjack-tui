@@ -13,7 +13,8 @@ type (
 	GameState   int
 	PlayerState int
 	Player      struct {
-		ID     uuid.UUID // TODO: Change this so it's unique later (for actually handling connections)
+		Name   string
+		ID     uuid.UUID
 		State  PlayerState
 		Bet    int // Used per round. How much the player is betting that round
 		Wallet int // Used for a session. How much the player has at a session
@@ -109,6 +110,7 @@ func NewPlayer(id uuid.UUID) *Player {
 		Hand:   &Hand{},
 		Bet:    0,
 		Wallet: 100,
+		Name:   "placeholder",
 	}
 }
 
@@ -229,7 +231,7 @@ func (g *Game) Hit(p *Player) error {
 	p.Hand.AddCard(c)
 
 	// update player state
-	if p.Hand.GetState() == BUST || p.Hand.GetState() == TWENTYONE{
+	if p.Hand.GetState() == BUST || p.Hand.GetState() == TWENTYONE {
 		g.endPlayerTurn(p)
 	}
 

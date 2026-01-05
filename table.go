@@ -55,6 +55,7 @@ func (t *Table) run() {
 		case client := <-t.register:
 			t.clients[client] = true
 			p := game.NewPlayer(client.id)
+			p.Name = "lugubrious_bagel"
 			t.game.AddPlayer(p)
 		case client := <-t.unregister:
 			slog.Info("attempting to unregister client", "client", client.id)
@@ -127,6 +128,7 @@ OuterLoop:
 			if t.game.AllPlayersBet() {
 				t.game.StartRound()
 			} else {
+				// if you don't do this there will be an infinite loop of WAITING_FOR_MORE_BETS checks
 				t.broadcastGameState()
 				return
 			}
