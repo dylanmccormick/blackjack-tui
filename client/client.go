@@ -257,13 +257,30 @@ func (p *TuiPlayer) renderPlayerZone() string {
 	return lipgloss.JoinVertical(lipgloss.Top, nameTag, renderMultipleCards(p.Cards), status)
 }
 
+func hiddenCardView() string {
+	color := lipgloss.Color("#FFFFFF")
+	style := lipgloss.NewStyle().Foreground(color)
+	padding := strings.Repeat(cardHor, Width-2)
+	view := style.Render("╭") + style.Render(padding+"╮") + "\n"
+	for i := 1; i < Height-1; i++ {
+		view += style.Render(cardVer+strings.Repeat(" ", Width-2)+cardVer) + "\n"
+	}
+	view += style.Render("╰"+padding) + style.Render("╯")
+	return view
+}
+
 func renderMultipleCards(cards []*Card) string {
 	cardViews := []string{}
-	for i, card := range cards {
-		if i == len(cards)-1 {
-			cardViews = append(cardViews, card.View())
-		} else {
-			cardViews = append(cardViews, card.ViewPartial())
+	if len(cards) == 1 {
+		cardViews = append(cardViews, cards[0].ViewPartial())
+		cardViews = append(cardViews, hiddenCardView())
+	} else {
+		for i, card := range cards {
+			if i == len(cards)-1 {
+				cardViews = append(cardViews, card.View())
+			} else {
+				cardViews = append(cardViews, card.ViewPartial())
+			}
 		}
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Left, cardViews...)
