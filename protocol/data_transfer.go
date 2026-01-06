@@ -27,6 +27,12 @@ type GameDTO struct {
 	DealerHand HandDTO
 }
 
+type TableDTO struct {
+	Id             string
+	Capacity       int
+	CurrentPlayers int
+}
+
 func CardToDTO(c game.Card) CardDTO {
 	return CardDTO{
 		Suit: string(c.Suit),

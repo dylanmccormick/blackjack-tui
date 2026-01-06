@@ -1,10 +1,9 @@
-package main
+package server
 
 import (
 	"encoding/json"
 	"log/slog"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dylanmccormick/blackjack-tui/game"
@@ -17,13 +16,13 @@ type inboundMessage struct {
 }
 
 type Table struct {
-	clients    map[*Client]bool
-	register   chan *Client
-	unregister chan *Client
-	inbound    chan inboundMessage
-	outbound   chan []byte
-	stopChan   chan struct{}
-	id         string
+	clients        map[*Client]bool
+	registerChan   chan *Client
+	unregisterChan chan *Client
+	inbound        chan inboundMessage
+	outbound       chan []byte
+	stopChan       chan struct{}
+	id             string
 
 	maxPlayers  int
 	game        *game.Game
@@ -31,19 +30,32 @@ type Table struct {
 	actionTimer *time.Timer
 }
 
-func newTable() *Table {
+func newTable(name string) *Table {
 	return &Table{
-		clients:     make(map[*Client]bool),
-		register:    make(chan *Client),
-		unregister:  make(chan *Client),
-		inbound:     make(chan inboundMessage),
-		outbound:    make(chan []byte),
-		stopChan:    make(chan struct{}),
-		id:          "placeholder",
-		game:        game.NewGame(),
-		betTimer:    time.NewTimer(30 * time.Second),
-		actionTimer: time.NewTimer(30 * time.Second),
+		clients:        make(map[*Client]bool),
+		registerChan:   make(chan *Client),
+		unregisterChan: make(chan *Client),
+		inbound:        make(chan inboundMessage),
+		outbound:       make(chan []byte),
+		stopChan:       make(chan struct{}),
+		id:             name,
+		game:           game.NewGame(),
+		betTimer:       time.NewTimer(30 * time.Second),
+		actionTimer:    time.NewTimer(30 * time.Second),
 	}
+}
+
+func (t *Table) register(c *Client) {
+	t.registerChan <- c
+}
+
+func (t *Table) unregister(c *Client) {
+	slog.Info("Unregistering client")
+	t.unregisterChan <- c
+}
+
+func (t *Table) sendMessage(msg inboundMessage) {
+	t.inbound <- msg
 }
 
 func (t *Table) run() {
@@ -52,12 +64,13 @@ func (t *Table) run() {
 		case <-t.stopChan:
 			slog.Info("Killing Table")
 			return
-		case client := <-t.register:
+		case client := <-t.registerChan:
+			slog.Info("attempting to register client", "client", client.id)
 			t.clients[client] = true
 			p := game.NewPlayer(client.id)
 			p.Name = "lugubrious_bagel"
 			t.game.AddPlayer(p)
-		case client := <-t.unregister:
+		case client := <-t.unregisterChan:
 			slog.Info("attempting to unregister client", "client", client.id)
 			if _, ok := t.clients[client]; ok {
 				delete(t.clients, client)
@@ -81,41 +94,51 @@ func (t *Table) run() {
 	}
 }
 
-func (h *Table) processMessage(msg inboundMessage) {
-	// jsonMsg := &protocol.TransportMessage{}
-	// json.Unmarshal(msg, jsonMsg)
-	data := msg.data
-	strMsg := string(data)
-	parts := strings.Split(strMsg, " ")
-	for _, p := range parts {
-		slog.Info(p)
+func unpackMessage(msg inboundMessage) (*protocol.TransportMessage, error) {
+	jsonMsg := &protocol.TransportMessage{}
+	err := json.Unmarshal(msg.data, jsonMsg)
+	if err != nil {
+		return &protocol.TransportMessage{}, err
 	}
-	h.handleCommand(parts, msg.client)
+	return jsonMsg, nil
 }
 
-func (t *Table) handleCommand(command []string, c *Client) {
-	switch command[0] {
-	case "start":
+func (t *Table) processMessage(msg inboundMessage) {
+	tranMsg, err := unpackMessage(msg)
+	if err != nil {
+		slog.Error("unable to unpack transport message", err)
+		return
+	}
+	t.handleCommand(tranMsg, msg.client)
+}
+
+func (t *Table) handleCommand(command *protocol.TransportMessage, c *Client) {
+	switch command.Type {
+	case protocol.MsgStartGame:
 		slog.Info("Starting game")
 		t.betTimer.Reset(30 * time.Second)
-	case "bet":
+	case protocol.MsgPlaceBet:
 		slog.Info("Betting")
-		bet, err := strconv.Atoi(command[1])
+		value := protocol.ValueMessage{}
+		err := json.Unmarshal(command.Data, &value)
 		if err != nil {
 			slog.Error("Got bad data from command", "command", command)
 		}
+		bet, err := strconv.Atoi(value.Value)
 		t.game.PlaceBet(t.game.GetPlayer(c.id), bet)
-	case "deal":
+	case protocol.MsgDealCards:
 		t.game.DealCards()
-	case "hit":
+	case protocol.MsgHit:
 		slog.Info("Hitting")
 		t.game.Hit(t.game.GetPlayer(c.id))
 		t.actionTimer.Reset(30 * time.Second)
-	case "stay":
+	case protocol.MsgStand:
 		t.game.Stay(t.game.GetPlayer(c.id))
 		slog.Info("Standing")
-	case "dealer":
-		t.game.PlayDealer()
+	case protocol.MsgLeaveTable:
+		lobby.register(c)
+		c.manager = lobby
+		delete(t.clients, c)
 	}
 }
 
@@ -153,17 +176,29 @@ OuterLoop:
 
 func (t *Table) broadcastGameState() {
 	gameData := protocol.GameToDTO(t.game)
-	data, err := json.Marshal(gameData)
+	wrapped, err := protocol.PackageMessage(gameData)
 	if err != nil {
-		slog.Error("Marshalling bad")
+		slog.Error("unable to package message", "error", err)
 		return
 	}
 	for client := range t.clients {
 		select {
-		case client.send <- data:
+		case client.send <- wrapped:
 		default:
 			close(client.send)
 			delete(t.clients, client)
 		}
+	}
+}
+
+func (t *Table) Id() string {
+	return t.id
+}
+
+func (t *Table) CreateDTO() protocol.TableDTO {
+	return protocol.TableDTO{
+		Id:             t.id,
+		Capacity:       t.maxPlayers,
+		CurrentPlayers: len(t.clients),
 	}
 }
