@@ -7,29 +7,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
-	"github.com/gorilla/websocket"
 )
 
-func listenForMessages(conn *websocket.Conn, c chan *protocol.TransportMessage) tea.Cmd {
-	return func() tea.Msg {
-		for {
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				panic(err)
-			}
-			data = bytes.TrimSpace(bytes.ReplaceAll(data, []byte("\n"), []byte(" ")))
-
-			log.Printf("adding message to chan: %s", string(data))
-			msg := ParseTransportMessage(data)
-			for _, m := range msg {
-				log.Printf("adding message to chan, %#v", m)
-				c <- m
-			}
-		}
-	}
-}
-
-func ReceiveMessage(sub chan *protocol.TransportMessage) tea.Cmd {
+func ReceiveMessage(sub <-chan *protocol.TransportMessage) tea.Cmd {
 	return func() tea.Msg {
 		log.Println("Reading message from chan")
 		msg := <-sub

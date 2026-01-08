@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"strings"
 
@@ -40,8 +39,9 @@ type RootModel struct {
 	width  int
 	height int
 
-	wsMessages chan *protocol.TransportMessage
-	conn       *websocket.Conn
+	transporter TransportMessageIO
+	wsMessages  <-chan *protocol.TransportMessage
+	conn        *websocket.Conn
 
 	table     *TuiTable
 	menuModel *MenuModel
@@ -52,18 +52,13 @@ func (mm *MenuModel) Init() tea.Cmd {
 }
 
 func (rm *RootModel) Init() tea.Cmd {
-	data, err := protocol.PackageClientMessage(protocol.MsgTableList, "")
-	if err != nil {
-		log.Print(err)
-	}
-	err = rm.conn.WriteJSON(data)
+	err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
 	if err != nil {
 		log.Print(err)
 	}
 	return tea.Batch(
 		rm.menuModel.Init(),
 		tea.ClearScreen,
-		listenForMessages(rm.conn, rm.wsMessages),
 		ReceiveMessage(rm.wsMessages),
 	)
 }
@@ -76,10 +71,20 @@ func (rm *RootModel) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
 			case "j":
+				if rm.menuModel.currTableIndex+1 < len(rm.menuModel.availableTables) {
+					rm.menuModel.currTableIndex += 1
+				}
 				// lower the index on the room
 			case "k":
+				if rm.menuModel.currTableIndex-1 >= 0 {
+					rm.menuModel.currTableIndex -= 1
+				}
 				// raise the index on the room
 			case "enter":
+				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgJoinTable, rm.menuModel.availableTables[rm.menuModel.currTableIndex].Id))
+				if err != nil {
+					log.Print(err)
+				}
 				// join the selected room
 			}
 		}
@@ -97,36 +102,28 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return rm, tea.Quit
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
+			case "c":
+				rm.transporter.Connect()
 			case "b":
-				data, err := protocol.PackageClientMessage(protocol.MsgPlaceBet, "5")
-				if err != nil {
-					log.Print(err)
-				}
-				err = rm.conn.WriteJSON(data)
+				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5"))
 				if err != nil {
 					log.Print(err)
 				}
 				// bet 5
 			case "h":
-				data, err := protocol.PackageClientMessage(protocol.MsgHit, "")
-				if err != nil {
-					log.Print(err)
-				}
-				err = rm.conn.WriteJSON(data)
+				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgHit, ""))
 				if err != nil {
 					log.Print(err)
 				}
 				// hit
 			case "s":
 				// stand
-				data, err := protocol.PackageClientMessage(protocol.MsgStand, "")
+				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgStand, ""))
 				if err != nil {
 					log.Print(err)
 				}
-				err = rm.conn.WriteJSON(data)
-				if err != nil {
-					log.Print(err)
-				}
+			default:
+				return rm.updateMenu(msg)
 			}
 		}
 	case tea.WindowSizeMsg:
@@ -142,30 +139,31 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return rm, ReceiveMessage(rm.wsMessages)
 }
 
-func NewRootModel() *RootModel {
-	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/"}
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		panic(err)
-	}
+func NewRootModel(tmio TransportMessageIO) *RootModel {
+	wsChan := tmio.GetChan()
 	return &RootModel{
-		wsMessages: make(chan *protocol.TransportMessage),
-		conn:       c,
-		table:      NewTable(),
-		menuModel:  &MenuModel{availableTables: []*protocol.TableDTO{{Id: "placeholder", Capacity: 5, CurrentPlayers: 0}}},
+		transporter: tmio,
+		wsMessages:  wsChan,
+		table:       NewTable(),
+		menuModel:   &MenuModel{availableTables: []*protocol.TableDTO{{Id: "placeholder", Capacity: 5, CurrentPlayers: 0}}},
 	}
 }
 
 func (rm *RootModel) View() string {
-	tables := rm.ViewTables()
+	tables := rm.menuModel.View()
 	view := lipgloss.JoinHorizontal(lipgloss.Left, tables, rm.table.View())
 	return lipgloss.Place(rm.width, rm.height, lipgloss.Center, lipgloss.Center, view)
 }
 
-func (rm *RootModel) ViewTables() string {
+func (mm *MenuModel) View() string {
+	selectedTableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
 	view := ""
-	for i, table := range rm.menuModel.availableTables {
-		view += fmt.Sprintf("%d %s %d/%d\n", i, table.Id, table.CurrentPlayers, table.Capacity)
+	for i, table := range mm.availableTables {
+		if i == mm.currTableIndex {
+			view += selectedTableStyle.Render(fmt.Sprintf("%d %s %d/%d\n", i, table.Id, table.CurrentPlayers, table.Capacity))
+		} else {
+			view += fmt.Sprintf("%d %s %d/%d\n", i, table.Id, table.CurrentPlayers, table.Capacity)
+		}
 	}
 	return view
 }
@@ -196,7 +194,8 @@ func renderEmptyBlock(width, height int) string {
 	return view
 }
 
-func RunTui() {
+func RunTui(mock *bool) {
+	var rm *RootModel
 	if len(os.Getenv("DEBUG")) > 0 {
 		f, err := tea.LogToFile("debug.log", "debug")
 		if err != nil {
@@ -205,7 +204,14 @@ func RunTui() {
 		}
 		defer f.Close()
 	}
-	rm := NewRootModel()
+	log.Printf("%#v", os.Args)
+	if *mock {
+		log.Println("running in mock mode")
+		rm = NewRootModel(NewMockTransporter())
+	} else {
+		log.Println("running in LIVE mode")
+		rm = NewRootModel(NewWsTransportMessageIO())
+	}
 	p := tea.NewProgram(rm)
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there has been an error: %v", err)
