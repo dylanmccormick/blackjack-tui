@@ -2,9 +2,12 @@ package client
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
 
 const (
@@ -24,6 +27,63 @@ func NewTable() *TuiTable {
 	return &TuiTable{
 		Players: testPlayers,
 	}
+}
+
+func (t *TuiTable) Init() tea.Cmd {
+	return nil
+}
+
+func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
+	log.Println("Translating game to state")
+	for i := 1; i < 6; i++ {
+		player := t.Players[i]
+		if len(msg.Players) < i {
+			break
+		}
+		receivedPlayer := msg.Players[i-1]
+		if len(receivedPlayer.Hand.Cards) > 0 {
+			player.Cards = []*Card{}
+			player.Value = receivedPlayer.Hand.Value
+		}
+		for _, card := range receivedPlayer.Hand.Cards {
+			player.Cards = append(player.Cards, CardToCard(card))
+		}
+		player.Bet = receivedPlayer.Bet
+		player.Wallet = receivedPlayer.Wallet
+		player.Name = receivedPlayer.Name
+		t.Players[i] = player
+	}
+	dealer := t.Players[0]
+	if len(msg.DealerHand.Cards) > 0 {
+		dealer.Cards = []*Card{}
+	}
+	for _, card := range msg.DealerHand.Cards {
+		dealer.Cards = append(dealer.Cards, CardToCard(card))
+		dealer.Value = msg.DealerHand.Value
+	}
+	t.Players[0] = dealer
+}
+
+func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		// Top Level Keys. Kill the program type keys
+		switch msg.Type {
+		case tea.KeyRunes:
+			switch string(msg.Runes) {
+			case "b":
+				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5")))
+			case "h":
+				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgHit, "")))
+			case "s":
+				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgStand, "")))
+			}
+			cmds = append(cmds, cmd)
+		}
+	}
+	return t, tea.Batch(cmds...)
 }
 
 func (t *TuiTable) View() string {

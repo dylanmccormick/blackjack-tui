@@ -28,11 +28,6 @@ type state struct {
 	todo int
 }
 
-type MenuModel struct {
-	currTableIndex  int
-	availableTables []*protocol.TableDTO
-}
-
 type RootModel struct {
 	page   page
 	state  state
@@ -43,15 +38,13 @@ type RootModel struct {
 	wsMessages  <-chan *protocol.TransportMessage
 	conn        *websocket.Conn
 
-	table     *TuiTable
-	menuModel *MenuModel
-}
-
-func (mm *MenuModel) Init() tea.Cmd {
-	return nil
+	table      *TuiTable
+	menuModel  tea.Model
+	loginModel tea.Model
 }
 
 func (rm *RootModel) Init() tea.Cmd {
+	rm.page = loginPage
 	err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
 	if err != nil {
 		log.Print(err)
@@ -63,80 +56,57 @@ func (rm *RootModel) Init() tea.Cmd {
 	)
 }
 
-func (rm *RootModel) updateMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// for when the root model is on page lobby
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.Type {
-		case tea.KeyRunes:
-			switch string(msg.Runes) {
-			case "j":
-				if rm.menuModel.currTableIndex+1 < len(rm.menuModel.availableTables) {
-					rm.menuModel.currTableIndex += 1
-				}
-				// lower the index on the room
-			case "k":
-				if rm.menuModel.currTableIndex-1 >= 0 {
-					rm.menuModel.currTableIndex -= 1
-				}
-				// raise the index on the room
-			case "enter":
-				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgJoinTable, rm.menuModel.availableTables[rm.menuModel.currTableIndex].Id))
-				if err != nil {
-					log.Print(err)
-				}
-				// join the selected room
-			}
-		}
-	}
+type errMsg struct {
+	err error
+}
 
-	return rm, ReceiveMessage(rm.wsMessages)
+func (rm *RootModel) Send(data *protocol.TransportMessage) tea.Cmd {
+	return func() tea.Msg {
+		log.Printf("sending data: %#v", data)
+		err := rm.transporter.SendData(data)
+		if err != nil {
+			return errMsg{err}
+		}
+		return nil
+	}
 }
 
 func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	log.Printf("Running update on message: %#v", msg)
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case ChangeRootPageMsg:
+		rm.page = msg.page
+	case SendMsg:
+		cmds = append(cmds, rm.Send(msg.data))
 	case tea.KeyMsg:
+		// Top Level Keys. Kill the program type keys
 		switch msg.Type {
 		case tea.KeyCtrlC:
 			return rm, tea.Quit
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
 			case "c":
+				// todo... turn this into a command!
 				rm.transporter.Connect()
-			case "b":
-				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5"))
-				if err != nil {
-					log.Print(err)
-				}
-				// bet 5
-			case "h":
-				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgHit, ""))
-				if err != nil {
-					log.Print(err)
-				}
-				// hit
-			case "s":
-				// stand
-				err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgStand, ""))
-				if err != nil {
-					log.Print(err)
-				}
-			default:
-				return rm.updateMenu(msg)
 			}
+			cmds = append(cmds, cmd)
 		}
 	case tea.WindowSizeMsg:
 		rm.width = msg.Width
 		rm.height = msg.Height
-	case *protocol.GameDTO:
-		rm.GameMessageToState(msg)
-		return rm, ReceiveMessage(rm.wsMessages)
-	case []*protocol.TableDTO:
-		rm.TablesToState(msg)
-		return rm, ReceiveMessage(rm.wsMessages)
 	}
-	return rm, ReceiveMessage(rm.wsMessages)
+	switch rm.page {
+	case menuPage:
+		log.Println("Updating menu page")
+		rm.menuModel, cmd = rm.menuModel.Update(msg)
+		cmds = append(cmds, cmd)
+	case loginPage:
+		log.Println("Loading game")
+		rm.loginModel, cmd = rm.loginModel.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+	return rm, tea.Batch(append(cmds, ReceiveMessage(rm.wsMessages))...)
 }
 
 func NewRootModel(tmio TransportMessageIO) *RootModel {
@@ -145,27 +115,22 @@ func NewRootModel(tmio TransportMessageIO) *RootModel {
 		transporter: tmio,
 		wsMessages:  wsChan,
 		table:       NewTable(),
-		menuModel:   &MenuModel{availableTables: []*protocol.TableDTO{{Id: "placeholder", Capacity: 5, CurrentPlayers: 0}}},
+		menuModel:   NewMenuModel(),
+		loginModel:  &LoginModel{},
 	}
 }
 
 func (rm *RootModel) View() string {
-	tables := rm.menuModel.View()
-	view := lipgloss.JoinHorizontal(lipgloss.Left, tables, rm.table.View())
-	return lipgloss.Place(rm.width, rm.height, lipgloss.Center, lipgloss.Center, view)
-}
-
-func (mm *MenuModel) View() string {
-	selectedTableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
-	view := ""
-	for i, table := range mm.availableTables {
-		if i == mm.currTableIndex {
-			view += selectedTableStyle.Render(fmt.Sprintf("%d %s %d/%d\n", i, table.Id, table.CurrentPlayers, table.Capacity))
-		} else {
-			view += fmt.Sprintf("%d %s %d/%d\n", i, table.Id, table.CurrentPlayers, table.Capacity)
-		}
+	var mainView string
+	switch rm.page {
+	case menuPage:
+		mainView = rm.menuModel.View()
+	case gamePage:
+		mainView = rm.table.View()
+	case loginPage:
+		mainView = rm.loginModel.View()
 	}
-	return view
+	return lipgloss.Place(rm.width, rm.height, lipgloss.Center, lipgloss.Center, mainView)
 }
 
 type TuiPlayer struct {
@@ -219,38 +184,12 @@ func RunTui(mock *bool) {
 	}
 }
 
-func (rm *RootModel) GameMessageToState(msg *protocol.GameDTO) {
-	log.Println("Translating game to state")
-	for i := 1; i < 6; i++ {
-		player := rm.table.Players[i]
-		if len(msg.Players) < i {
-			break
-		}
-		receivedPlayer := msg.Players[i-1]
-		if len(receivedPlayer.Hand.Cards) > 0 {
-			player.Cards = []*Card{}
-			player.Value = receivedPlayer.Hand.Value
-		}
-		for _, card := range receivedPlayer.Hand.Cards {
-			player.Cards = append(player.Cards, CardToCard(card))
-		}
-		player.Bet = receivedPlayer.Bet
-		player.Wallet = receivedPlayer.Wallet
-		player.Name = receivedPlayer.Name
-		rm.table.Players[i] = player
+func ChangeRootPage(p page) tea.Cmd {
+	return func() tea.Msg {
+		return ChangeRootPageMsg{p}
 	}
-	dealer := rm.table.Players[0]
-	if len(msg.DealerHand.Cards) > 0 {
-		dealer.Cards = []*Card{}
-	}
-	for _, card := range msg.DealerHand.Cards {
-		dealer.Cards = append(dealer.Cards, CardToCard(card))
-		dealer.Value = msg.DealerHand.Value
-	}
-	rm.table.Players[0] = dealer
 }
 
-func (rm *RootModel) TablesToState(msg []*protocol.TableDTO) {
-	log.Println("Translating tables to table list")
-	rm.menuModel.availableTables = msg
+type ChangeRootPageMsg struct {
+	page page
 }
