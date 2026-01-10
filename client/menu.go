@@ -71,12 +71,14 @@ func (mm *MenuModel) View() string {
 		return mm.TableView()
 	case serverMenu:
 		return mm.ServerView()
+	case settingsMenu:
+		return mm.ViewSettings()
 	}
 	return ""
 }
 
 func (mm *MenuModel) MainMenuView() string {
-	selectedTableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
+	selectedTableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
 	view := []string{}
 	for i, menuItem := range mm.menuItems {
 		if i == mm.currMenuIndex {
@@ -90,7 +92,7 @@ func (mm *MenuModel) MainMenuView() string {
 
 func (mm *MenuModel) TableView() string {
 	items := []string{}
-	selectedTableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
+	selectedTableStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
 	for i, table := range mm.availableTables {
 		if i == mm.currTableIndex {
 			items = append(items, selectedTableStyle.Render(fmt.Sprintf("%d %s %d/%d\n", i, table.Id, table.CurrentPlayers, table.Capacity)))
@@ -109,6 +111,8 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return mm.TableUpdate(msg)
 	case serverMenu:
 		return mm.UpdateServer(msg)
+	case settingsMenu:
+		return mm.UpdateSettings(msg)
 	}
 	return mm, nil
 }
@@ -118,8 +122,13 @@ func (mm *MenuModel) TableUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		mm.page = msg.page
 	case tea.KeyMsg:
 		switch msg.Type {
+		case tea.KeyEsc:
+			cmd = ChangeMenuPageCmd(mainMenu)
+			cmds = append(cmds, cmd)
 		case tea.KeyEnter:
 			// this could be a command?
 			log.Printf("Attempting to join table: %s", mm.availableTables[mm.currTableIndex].Id)
@@ -220,7 +229,7 @@ func TextFocusCmd() tea.Cmd {
 }
 
 func (mm *MenuModel) ServerView() string {
-	selectedServerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
+	selectedServerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
 	view := []string{}
 	for i, menuItem := range mm.savedServers {
 		if i == mm.currServerIndex {
@@ -276,4 +285,40 @@ func (mm *MenuModel) UpdateServer(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return mm, tea.Batch(cmds...)
+}
+
+func (mm *MenuModel) UpdateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		mm.page = msg.page
+	case TextFocusMsg:
+		mm.textInput.Focus()
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			cmds = append(cmds, ChangeMenuPageCmd(mainMenu))
+		case tea.KeyEnter:
+			// This will be to join a server
+			cmd = nil
+			cmds = append(cmds, cmd)
+		case tea.KeyRunes:
+			switch string(msg.Runes) {
+			case "j":
+				if mm.currServerIndex+1 < len(mm.savedServers) {
+					mm.currServerIndex += 1
+				}
+			case "k":
+				if mm.currServerIndex-1 >= 0 {
+					mm.currServerIndex -= 1
+				}
+			}
+		}
+	}
+	return mm, tea.Batch(cmds...)
+}
+
+func (mm *MenuModel) ViewSettings() string {
+	return ""
 }

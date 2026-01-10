@@ -203,7 +203,7 @@ type ChangeRootPageMsg struct {
 func (rm *RootModel) RenderHeader() string {
 	var sb strings.Builder
 	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")).
+		Foreground(lipgloss.Color(highlight)).
 		Width(80).
 		Align(lipgloss.Center)
 
