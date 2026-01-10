@@ -165,14 +165,6 @@ var testPlayers = []TuiPlayer{
 	{"player_6", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
 }
 
-func renderEmptyBlock(width, height int) string {
-	view := ""
-	for range height {
-		view += strings.Repeat(" ", width) + "\n"
-	}
-	return view
-}
-
 func RunTui(mock *bool) {
 	var rm *RootModel
 	if len(os.Getenv("DEBUG")) > 0 {

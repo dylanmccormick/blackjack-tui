@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
@@ -18,6 +19,8 @@ type (
 		availableTables []*protocol.TableDTO
 		page            mPage
 		menuItems       []string
+		textInput       textinput.Model
+		savedServers    []string
 	}
 )
 
@@ -29,6 +32,9 @@ const (
 )
 
 func NewMenuModel() *MenuModel {
+	serverText := textinput.New()
+	serverText.Placeholder = "http://localhost:3030"
+	serverText.Width = 40
 	return &MenuModel{
 		availableTables: []*protocol.TableDTO{
 			{Id: "placeholder", Capacity: 5, CurrentPlayers: 0},
@@ -44,6 +50,11 @@ func NewMenuModel() *MenuModel {
 			"Tables",
 			"Settings",
 		},
+		textInput: serverText,
+		savedServers: []string{
+			"localhost:8080",
+			"localhost:3030",
+		},
 	}
 }
 
@@ -58,6 +69,8 @@ func (mm *MenuModel) View() string {
 		return mm.MainMenuView()
 	case tableMenu:
 		return mm.TableView()
+	case serverMenu:
+		return mm.ServerView()
 	}
 	return ""
 }
@@ -94,6 +107,8 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return mm.UpdateMain(msg)
 	case tableMenu:
 		return mm.TableUpdate(msg)
+	case serverMenu:
+		return mm.UpdateServer(msg)
 	}
 	return mm, nil
 }
@@ -147,7 +162,6 @@ func (mm *MenuModel) UpdateMain(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			// this could be a command?
 			var newPage mPage
 			switch mm.menuItems[mm.currMenuIndex] {
 			case "Servers":
@@ -195,4 +209,71 @@ func ChangeMenuPageCmd(p mPage) tea.Cmd {
 	return func() tea.Msg {
 		return ChangeMenuPage{p}
 	}
+}
+
+type TextFocusMsg struct{}
+
+func TextFocusCmd() tea.Cmd {
+	return func() tea.Msg {
+		return TextFocusMsg{}
+	}
+}
+
+func (mm *MenuModel) ServerView() string {
+	selectedServerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170"))
+	view := []string{}
+	for i, menuItem := range mm.savedServers {
+		if i == mm.currServerIndex {
+			view = append(view, selectedServerStyle.Render(fmt.Sprintf("%s\n", menuItem)))
+		} else {
+			view = append(view, fmt.Sprintf("%s\n", menuItem))
+		}
+	}
+	view = append(view, mm.textInput.View())
+	return lipgloss.JoinVertical(lipgloss.Left, view...)
+}
+
+func (mm *MenuModel) UpdateServer(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		mm.page = msg.page
+	case TextFocusMsg:
+		mm.textInput.Focus()
+	case tea.KeyMsg:
+		switch msg.Type {
+		case tea.KeyEsc:
+			if mm.textInput.Focused() {
+				mm.textInput.Blur()
+			} else {
+				cmds = append(cmds, ChangeMenuPageCmd(mainMenu))
+			}
+		case tea.KeyEnter:
+			// This will be to join a server
+			cmd = nil
+			cmds = append(cmds, cmd)
+		case tea.KeyRunes:
+			switch string(msg.Runes) {
+			case "n":
+				cmd = TextFocusCmd()
+				cmds = append(cmds, cmd)
+			case "j":
+				if mm.currServerIndex+1 < len(mm.savedServers) {
+					mm.currServerIndex += 1
+				}
+			case "k":
+				if mm.currServerIndex-1 >= 0 {
+					mm.currServerIndex -= 1
+				}
+			}
+		}
+	}
+
+	if mm.textInput.Focused() {
+		mm.textInput, cmd = mm.textInput.Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return mm, tea.Batch(cmds...)
 }

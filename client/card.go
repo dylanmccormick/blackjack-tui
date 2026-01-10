@@ -1,6 +1,7 @@
 package client
 
 import (
+	"log"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -34,9 +35,10 @@ func NewCard(value, suit int) *Card {
 }
 
 func CardToCard(pc protocol.CardDTO) *Card {
+	log.Printf("translating card %#v", pc)
 	card := &Card{}
 	if strings.ToLower(pc.Suit) == "spade" {
-		card.Suit = 0
+		card.Suit = 2
 	} else if strings.ToLower(pc.Suit) == "diamond" {
 		card.Suit = 1
 	} else if strings.ToLower(pc.Suit) == "heart" {
@@ -51,12 +53,12 @@ func CardToCard(pc protocol.CardDTO) *Card {
 }
 
 func (c *Card) String() string {
-	color := lipgloss.Color("#FFFFFF")
+	color := lipgloss.Color(foreground)
 	switch c.Suit {
-	case 0, 3:
-		color = lipgloss.Color("#90EE90")
-	case 1, 2:
-		color = lipgloss.Color("#FFCCCC")
+	case 0, 3: // black cards
+		color = lipgloss.Color(blackCard)
+	case 1, 2: // red cards
+		color = lipgloss.Color(redCard)
 	}
 	style := lipgloss.NewStyle().Foreground(color)
 	return style.Render(values[c.Value] + suits[c.Suit])
@@ -98,7 +100,7 @@ func hiddenCardView() string {
 	return view
 }
 
-func renderMultipleCards(cards []*Card) string {
+func renderMultipleCards(cards []*Card, w, h int) string {
 	cardViews := []string{}
 	if len(cards) == 1 {
 		cardViews = append(cardViews, cards[0].ViewPartial())
@@ -112,5 +114,5 @@ func renderMultipleCards(cards []*Card) string {
 			}
 		}
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Left, cardViews...)
+	return lipgloss.Place(w, h, lipgloss.Left, lipgloss.Center, lipgloss.JoinHorizontal(lipgloss.Left, cardViews...))
 }

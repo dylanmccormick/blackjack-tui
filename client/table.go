@@ -3,7 +3,6 @@ package client
 import (
 	"fmt"
 	"log"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,6 +20,8 @@ const (
 
 type TuiTable struct {
 	Players []TuiPlayer
+	Height  int
+	Width   int
 }
 
 func NewTable() *TuiTable {
@@ -90,15 +91,8 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (t *TuiTable) View() string {
 	color := lipgloss.Color("#FFFFFF")
-	style := lipgloss.NewStyle().Foreground(color)
-	// Render top line
-	top := style.Render(tableTL + strings.Repeat(tableHor, 66-2) + tableTR)
-	vertBorder := style.Render(strings.Repeat(tableVer+"\n", 24) + tableVer)
-	// Render Middle
-	middle := lipgloss.JoinHorizontal(lipgloss.Left, vertBorder, t.renderMiddle(), vertBorder)
-	// Render Bottom Line
-	bottom := style.Render(tableBL + strings.Repeat(tableHor, 66-2) + tableBR)
-	return lipgloss.JoinVertical(lipgloss.Top, top, middle, bottom)
+	style := lipgloss.NewStyle().Foreground(color).Border(lipgloss.DoubleBorder())
+	return style.Render(t.renderMiddle())
 }
 
 func (t *TuiTable) renderMiddle() string {
@@ -109,27 +103,27 @@ func (t *TuiTable) renderMiddle() string {
 }
 
 func (t *TuiTable) renderVerticalZone1() string {
-	playerOne := t.Players[1].renderPlayerZone()
-	playerTwo := t.Players[2].renderPlayerZone()
-	middle1 := lipgloss.JoinHorizontal(lipgloss.Left, renderEmptyBlock(3, 6), playerOne, renderEmptyBlock(4, 6))
-	middle2 := lipgloss.JoinHorizontal(lipgloss.Left, renderEmptyBlock(3, 6), playerTwo, renderEmptyBlock(4, 6))
-	return lipgloss.JoinVertical(lipgloss.Top, renderEmptyBlock(22, 1), middle1, renderEmptyBlock(20, 2), middle2, renderEmptyBlock(20, 5))
+	p1Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4)
+	p2Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4).PaddingBottom(5)
+	playerOne := p1Style.Render(t.Players[1].renderPlayerZone())
+	playerTwo := p2Style.Render(t.Players[2].renderPlayerZone())
+	return lipgloss.JoinVertical(lipgloss.Top, playerOne, playerTwo)
 }
 
 func (t *TuiTable) renderVerticalZone2() string {
-	dealer := t.Players[0].renderPlayerZone()
-	player3 := t.Players[3].renderPlayerZone()
-	middle1 := lipgloss.JoinHorizontal(lipgloss.Left, dealer, renderEmptyBlock(1, 6))
-	middle2 := lipgloss.JoinHorizontal(lipgloss.Left, player3, renderEmptyBlock(1, 6))
-	return lipgloss.JoinVertical(lipgloss.Top, middle1, renderEmptyBlock(20, 6), middle2, renderEmptyBlock(20, 2))
+	dealerStyle := lipgloss.NewStyle().PaddingRight(4).PaddingTop(1)
+	p3Style := lipgloss.NewStyle().PaddingTop(6).PaddingRight(4).PaddingBottom(2)
+	dealer := dealerStyle.Render(t.Players[0].renderPlayerZone())
+	player3 := p3Style.Render(t.Players[3].renderPlayerZone())
+	return lipgloss.JoinVertical(lipgloss.Top, dealer, player3)
 }
 
 func (t *TuiTable) renderVerticalZone3() string {
-	playerFour := t.Players[4].renderPlayerZone()
-	playerFive := t.Players[4].renderPlayerZone()
-	middle1 := lipgloss.JoinHorizontal(lipgloss.Left, playerFive, renderEmptyBlock(4, 6))
-	middle2 := lipgloss.JoinHorizontal(lipgloss.Left, playerFour, renderEmptyBlock(4, 6))
-	return lipgloss.JoinVertical(lipgloss.Top, renderEmptyBlock(16, 1), middle1, renderEmptyBlock(22, 2), middle2, renderEmptyBlock(22, 5))
+	p4Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2)
+	p5Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2).PaddingBottom(5)
+	playerFour := p4Style.Render(t.Players[4].renderPlayerZone())
+	playerFive := p5Style.Render(t.Players[5].renderPlayerZone())
+	return lipgloss.JoinVertical(lipgloss.Top, playerFour, playerFive)
 }
 
 func (p *TuiPlayer) renderPlayerZone() string {
@@ -141,5 +135,5 @@ func (p *TuiPlayer) renderPlayerZone() string {
 		valueStr = "?"
 	}
 	status := fmt.Sprintf("V:%s B:%d W:%d", valueStr, bet, wallet)
-	return lipgloss.JoinVertical(lipgloss.Top, nameTag, renderMultipleCards(p.Cards), status)
+	return lipgloss.Place(16, 5, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Top, nameTag, renderMultipleCards(p.Cards, 16, 6), status))
 }

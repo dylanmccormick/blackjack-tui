@@ -142,9 +142,12 @@ func (m *MockTransportMessageIO) FetchData() {
 }
 
 func generateMockCards() []protocol.CardDTO {
+	suitStrings := []string{"spade", "heart", "diamond", "club"}
 	return []protocol.CardDTO{
-		{Suit: suits[rand.IntN(4)], Rank: rand.IntN(13) + 1},
-		{Suit: suits[rand.IntN(4)], Rank: rand.IntN(13) + 1},
+		{Suit: suitStrings[rand.IntN(4)], Rank: rand.IntN(13) + 1},
+		{Suit: suitStrings[rand.IntN(4)], Rank: rand.IntN(13) + 1},
+		{Suit: suitStrings[rand.IntN(4)], Rank: rand.IntN(13) + 1},
+		{Suit: suitStrings[rand.IntN(4)], Rank: rand.IntN(13) + 1},
 	}
 }
 
