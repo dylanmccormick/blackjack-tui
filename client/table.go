@@ -68,6 +68,8 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case *protocol.GameDTO:
+		t.GameMessageToState(msg)
 	case tea.KeyMsg:
 		// Top Level Keys. Kill the program type keys
 		switch msg.Type {

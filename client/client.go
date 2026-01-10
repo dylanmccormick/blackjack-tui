@@ -12,8 +12,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Pages... Menu Page and Game Page and Maybe a Settings Page?? Later. If I decide to add themes
-
 type page int
 
 const (
@@ -38,7 +36,7 @@ type RootModel struct {
 	wsMessages  <-chan *protocol.TransportMessage
 	conn        *websocket.Conn
 
-	table      *TuiTable
+	table      tea.Model
 	menuModel  tea.Model
 	loginModel tea.Model
 }
@@ -105,6 +103,10 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Println("Loading game")
 		rm.loginModel, cmd = rm.loginModel.Update(msg)
 		cmds = append(cmds, cmd)
+	case gamePage:
+		log.Println("Updating table page")
+		rm.table, cmd = rm.table.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 	return rm, tea.Batch(append(cmds, ReceiveMessage(rm.wsMessages))...)
 }
@@ -121,6 +123,11 @@ func NewRootModel(tmio TransportMessageIO) *RootModel {
 }
 
 func (rm *RootModel) View() string {
+	style := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		Width(80).
+		Height(30).
+		Margin(((rm.height - 25) / 2), ((rm.width - 80) / 2))
 	var mainView string
 	switch rm.page {
 	case menuPage:
@@ -129,8 +136,15 @@ func (rm *RootModel) View() string {
 		mainView = rm.table.View()
 	case loginPage:
 		mainView = rm.loginModel.View()
+		return style.Render(mainView)
 	}
-	return lipgloss.Place(rm.width, rm.height, lipgloss.Center, lipgloss.Center, mainView)
+	bannerHeight := 5
+	mainViewStyle := lipgloss.NewStyle().
+		Width(80-2).
+		Height(25-bannerHeight).
+		Align(lipgloss.Center, lipgloss.Center)
+	fullView := lipgloss.Place(80, 25, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Top, rm.RenderHeader(), mainViewStyle.Render(mainView)))
+	return style.Render(fullView)
 }
 
 type TuiPlayer struct {
@@ -193,3 +207,23 @@ func ChangeRootPage(p page) tea.Cmd {
 type ChangeRootPageMsg struct {
 	page page
 }
+
+func (rm *RootModel) RenderHeader() string {
+	var sb strings.Builder
+	style := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("170")).
+		Width(80).
+		Align(lipgloss.Center)
+
+	sb.WriteString(banner)
+
+	return style.Render(sb.String())
+}
+
+const banner = `
+ ____  _        _    ____ _  __   _   _    ____ _  __ 
+| __ )| |      / \  / ___| |/ /  | | / \  / ___| |/ / 
+|  _ \| |     / _ \| |   | ' /_  | |/ _ \| |   | ' /  
+| |_) | |___ / ___ \ |___| . \ |_| / ___ \ |___| . \  
+|____/|_____/_/   \_\____|_|\_\___/_/   \_\____|_|\_\ 
+`

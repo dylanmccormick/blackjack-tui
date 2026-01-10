@@ -101,13 +101,17 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (mm *MenuModel) TableUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// for when the root model is on page lobby
 	var cmds []tea.Cmd
+	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
 			// this could be a command?
 			log.Printf("Attempting to join table: %s", mm.availableTables[mm.currTableIndex].Id)
-			cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgJoinTable, mm.availableTables[mm.currTableIndex].Id)))
+			cmd = SendData(protocol.PackageClientMessage(protocol.MsgJoinTable, mm.availableTables[mm.currTableIndex].Id))
+			cmds = append(cmds, cmd)
+			cmd = ChangeRootPage(gamePage)
+			cmds = append(cmds, cmd)
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
 			case "j":
