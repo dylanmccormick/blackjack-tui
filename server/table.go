@@ -51,6 +51,7 @@ func (t *Table) register(c *Client) {
 
 func (t *Table) unregister(c *Client) {
 	slog.Info("Unregistering client")
+	// this should always be "unintentional" because it comes from the readpump only
 	t.unregisterChan <- c
 }
 
@@ -71,6 +72,7 @@ func (t *Table) run() {
 			p.Name = "lugubrious_bagel"
 			t.game.AddPlayer(p)
 		case client := <-t.unregisterChan:
+			// Unintentionally Left Table (connection issue or pkill or whatever)
 			slog.Info("attempting to unregister client", "client", client.id)
 			if _, ok := t.clients[client]; ok {
 				delete(t.clients, client)
@@ -136,10 +138,20 @@ func (t *Table) handleCommand(command *protocol.TransportMessage, c *Client) {
 		t.game.Stay(t.game.GetPlayer(c.id))
 		slog.Info("Standing")
 	case protocol.MsgLeaveTable:
-		lobby.register(c)
-		c.manager = lobby
-		delete(t.clients, c)
+		// intentionally left table
+		// press ctrl+c or leave button
+		t.cmdLeaveTable(c)
 	}
+}
+
+func (t *Table) cmdLeaveTable(c *Client) {
+	player := t.game.GetPlayer(c.id)
+	if player != nil {
+		player.IntentionalDisconnect = true
+	}
+	lobby.register(c)
+	c.manager = lobby
+	delete(t.clients, c)
 }
 
 func (t *Table) autoProgress() {

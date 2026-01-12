@@ -1,0 +1,44 @@
+debug 2026/01/12 06:50:54 []string{"/home/dmccormick/.cache/go-build/a4/a4941bcd0399afc1ae4013967788b15855decf9baf382247413e64f7a5789f52-d/blackjack-tui", "-f=tui", "-mock=true"}
+debug 2026/01/12 06:50:54 running in mock mode
+debug 2026/01/12 06:50:54 Current state: 0
+debug 2026/01/12 06:50:54 Reading message from chan
+debug 2026/01/12 06:50:54 Loading game
+debug 2026/01/12 06:50:54 Reading message from chan
+debug 2026/01/12 06:50:54 Loading game
+debug 2026/01/12 06:50:54 Reading message from chan
+debug 2026/01/12 06:50:56 Loading game
+debug 2026/01/12 06:50:56 Reading message from chan
+debug 2026/01/12 06:50:56 Updating menu page
+debug 2026/01/12 06:50:56 Reading message from chan
+debug 2026/01/12 06:50:57 Updating menu page
+debug 2026/01/12 06:50:57 Reading message from chan
+debug 2026/01/12 06:50:57 Updating menu page
+debug 2026/01/12 06:50:57 Reading message from chan
+debug 2026/01/12 06:50:58 Updating menu page
+debug 2026/01/12 06:50:58 Reading message from chan
+debug 2026/01/12 06:50:58 Updating menu page
+debug 2026/01/12 06:50:58 Reading message from chan
+debug 2026/01/12 06:50:59 Updating menu page
+debug 2026/01/12 06:50:59 Reading message from chan
+debug 2026/01/12 06:50:59 Updating menu page
+debug 2026/01/12 06:50:59 Reading message from chan
+debug 2026/01/12 06:50:59 Updating menu page
+debug 2026/01/12 06:50:59 Reading message from chan
+debug 2026/01/12 06:51:00 Updating menu page
+debug 2026/01/12 06:51:00 Reading message from chan
+debug 2026/01/12 06:51:00 Updating menu page
+debug 2026/01/12 06:51:00 Reading message from chan
+debug 2026/01/12 06:51:00 Updating menu page
+debug 2026/01/12 06:51:00 Updating menu page
+debug 2026/01/12 06:51:00 Reading message from chan
+debug 2026/01/12 06:51:00 Reading message from chan
+debug 2026/01/12 06:51:00 Updating menu page
+debug 2026/01/12 06:51:00 Reading message from chan
+debug 2026/01/12 06:51:00 Updating menu page
+debug 2026/01/12 06:51:00 Reading message from chan
+debug 2026/01/12 06:51:00 Updating menu page
+debug 2026/01/12 06:51:00 Reading message from chan
+debug 2026/01/12 06:51:01 Updating menu page
+debug 2026/01/12 06:51:01 Reading message from chan
+debug 2026/01/12 06:51:01 Updating menu page
+debug 2026/01/12 06:51:01 Reading message from chan

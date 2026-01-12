@@ -12,22 +12,6 @@ import (
 type (
 	GameState   int
 	PlayerState int
-	Player      struct {
-		Name   string
-		ID     uuid.UUID
-		State  PlayerState
-		Bet    int // Used per round. How much the player is betting that round
-		Wallet int // Used for a session. How much the player has at a session
-		Hand   *Hand
-	}
-)
-
-const (
-	BETTING PlayerState = iota
-	BETS_MADE
-	WAITING_FOR_ACTION
-	DONE
-	SITTING
 )
 
 const (
@@ -38,22 +22,6 @@ const (
 	DEALER_TURN
 	RESOLVING_BETS
 )
-
-func (ps PlayerState) String() string {
-	switch ps {
-	case BETTING:
-		return "BETTING"
-	case BETS_MADE:
-		return "BETS_MADE"
-	case WAITING_FOR_ACTION:
-		return "WAITING_FOR_ACTION"
-	case DONE:
-		return "DONE"
-	case SITTING:
-		return "SITTING"
-	}
-	return "UNKNOWN"
-}
 
 func (gs GameState) String() string {
 	switch gs {
@@ -103,15 +71,26 @@ func NewGame() *Game {
 	}
 }
 
-func NewPlayer(id uuid.UUID) *Player {
-	slog.Debug("Creating new player")
-	return &Player{
-		ID:     id,
-		Hand:   &Hand{},
-		Bet:    0,
-		Wallet: 100,
-		Name:   "placeholder",
+func (g *Game) GetPlayer(playerId uuid.UUID) *Player {
+	for _, p := range g.Players {
+		if p.ID == playerId {
+			return p
+		}
 	}
+	return nil
+}
+
+func (g *Game) RemovePlayer(playerId uuid.UUID) error {
+	p := g.GetPlayer(playerId)
+	if p == nil {
+		return fmt.Errorf("Player %#v is not in game", playerId)
+	}
+	for i, player := range g.Players {
+		if p == player {
+			g.Players[i] = nil
+		}
+	}
+	return nil
 }
 
 func (g *Game) AddPlayer(p *Player) error {
@@ -329,16 +308,6 @@ func (g *Game) PlaceBet(p *Player, bet int) error {
 	return nil
 }
 
-func (p *Player) ValidateBet(bet int) error {
-	if bet < 1 {
-		return fmt.Errorf("Bets cannot be negative")
-	}
-	if bet > p.Wallet {
-		return fmt.Errorf("Bet cannot be higher than current wallet amount")
-	}
-	return nil
-}
-
 func (g *Game) NextPlayer() bool {
 	g.CurrentPlayerIndex++
 	return g.CurrentPlayerIndex < len(g.ActivePlayers())
@@ -350,10 +319,10 @@ func (g *Game) ActivePlayers() []*Player {
 		if p == nil {
 			continue
 		}
-		if p.State != SITTING {
+		if p.State != INACTIVE {
 			active = append(active, p)
 		} else {
-			p.State = SITTING
+			p.State = INACTIVE
 		}
 	}
 	if len(active) < 1 {
