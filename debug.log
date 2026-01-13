@@ -3275,3 +3275,56 @@ debug 2026/01/13 07:30:31 &{game_state [123 34 80 108 97 121 101 114 115 34 58 9
 debug 2026/01/13 07:30:31 Updating table page
 debug 2026/01/13 07:30:31 Translating game to state
 debug 2026/01/13 07:30:31 Reading message from chan
+debug 2026/01/13 07:50:57 []string{"/tmp/go-build2212174837/b001/exe/blackjack-tui", "-f=tui"}
+debug 2026/01/13 07:50:57 running in LIVE mode
+debug 2026/01/13 07:50:57 Reading message from chan
+debug 2026/01/13 07:50:57 Loading game
+debug 2026/01/13 07:50:57 Reading message from chan
+debug 2026/01/13 07:50:57 Loading game
+debug 2026/01/13 07:50:57 Reading message from chan
+debug 2026/01/13 07:50:57 Loading game
+debug 2026/01/13 07:50:57 Reading message from chan
+debug 2026/01/13 07:51:06 []string{"/home/dmccormick/.cache/go-build/87/87c42aa2661411e04a34d5c2a55d9f9460dc640bd0fdeb3e2bfe975ac287b016-d/blackjack-tui", "-f=tui", "-mock=true"}
+debug 2026/01/13 07:51:06 running in mock mode
+debug 2026/01/13 07:51:06 Loading game
+debug 2026/01/13 07:51:06 Reading message from chan
+debug 2026/01/13 07:51:06 Reading message from chan
+debug 2026/01/13 07:51:06 Loading game
+debug 2026/01/13 07:51:06 Reading message from chan
+debug 2026/01/13 07:51:06 Loading game
+debug 2026/01/13 07:51:06 Reading message from chan
+debug 2026/01/13 07:51:07 Loading game
+debug 2026/01/13 07:51:07 Reading message from chan
+debug 2026/01/13 07:51:07 Updating menu page
+debug 2026/01/13 07:51:07 Reading message from chan
+debug 2026/01/13 07:51:11 Updating menu page
+debug 2026/01/13 07:51:11 Reading message from chan
+debug 2026/01/13 07:51:11 Updating menu page
+debug 2026/01/13 07:51:11 Reading message from chan
+debug 2026/01/13 07:51:11 Updating menu page
+debug 2026/01/13 07:51:11 Reading message from chan
+debug 2026/01/13 07:51:11 Updating menu page
+debug 2026/01/13 07:51:11 Reading message from chan
+debug 2026/01/13 07:51:12 Updating menu page
+debug 2026/01/13 07:51:12 Reading message from chan
+debug 2026/01/13 07:51:12 Updating menu page
+debug 2026/01/13 07:51:12 Reading message from chan
+debug 2026/01/13 07:51:13 Updating menu page
+debug 2026/01/13 07:51:13 Reading message from chan
+debug 2026/01/13 07:51:13 Updating menu page
+debug 2026/01/13 07:51:13 Reading message from chan
+debug 2026/01/13 07:51:14 Updating menu page
+debug 2026/01/13 07:51:14 Reading message from chan
+debug 2026/01/13 07:52:10 []string{"/tmp/go-build150846785/b001/exe/blackjack-tui", "-f=tui", "-mock=true"}
+debug 2026/01/13 07:52:10 running in mock mode
+debug 2026/01/13 07:52:10 Loading game
+debug 2026/01/13 07:52:10 Reading message from chan
+debug 2026/01/13 07:52:10 Reading message from chan
+debug 2026/01/13 07:52:10 Loading game
+debug 2026/01/13 07:52:10 Reading message from chan
+debug 2026/01/13 07:52:10 Loading game
+debug 2026/01/13 07:52:10 Reading message from chan
+debug 2026/01/13 07:52:11 Loading game
+debug 2026/01/13 07:52:11 Updating menu page
+debug 2026/01/13 07:52:11 Reading message from chan
+debug 2026/01/13 07:52:11 Reading message from chan

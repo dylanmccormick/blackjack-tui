@@ -36,17 +36,20 @@ type RootModel struct {
 	wsMessages  <-chan *protocol.TransportMessage
 	conn        *websocket.Conn
 
-	table      tea.Model
-	menuModel  tea.Model
-	loginModel tea.Model
+	table       tea.Model
+	menuModel   tea.Model
+	loginModel  tea.Model
+	footerModel tea.Model
 }
 
 func (rm *RootModel) Init() tea.Cmd {
 	rm.page = loginPage
+	commands := map[string]string{"ctrl+c": "quit"}
 	return tea.Batch(
 		rm.menuModel.Init(),
 		tea.ClearScreen,
 		ReceiveMessage(rm.wsMessages),
+		AddCommands(commands),
 	)
 }
 
@@ -105,6 +108,8 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rm.table, cmd = rm.table.Update(msg)
 		cmds = append(cmds, cmd)
 	}
+
+	rm.footerModel, cmd = rm.footerModel.Update(msg)
 	return rm, tea.Batch(append(cmds, ReceiveMessage(rm.wsMessages))...)
 }
 
@@ -116,6 +121,7 @@ func NewRootModel(tmio TransportMessageIO) *RootModel {
 		table:       NewTable(),
 		menuModel:   NewMenuModel(),
 		loginModel:  &LoginModel{},
+		footerModel: NewFooter(),
 	}
 }
 
@@ -140,7 +146,7 @@ func (rm *RootModel) View() string {
 		Width(80-2).
 		Height(25-bannerHeight).
 		Align(lipgloss.Center, lipgloss.Center)
-	fullView := lipgloss.Place(80, 25, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Top, rm.RenderHeader(), mainViewStyle.Render(mainView)))
+	fullView := lipgloss.Place(80, 25, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Top, rm.RenderHeader(), mainViewStyle.Render(mainView), rm.footerModel.View()))
 	return style.Render(fullView)
 }
 
