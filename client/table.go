@@ -9,29 +9,27 @@ import (
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
 
-const (
-	tableHor = "═"
-	tableVer = "║"
-	tableTL  = "╔"
-	tableTR  = "╗"
-	tableBL  = "╚"
-	tableBR  = "╝"
-)
-
 type TuiTable struct {
-	Players []TuiPlayer
-	Height  int
-	Width   int
+	Players  []TuiPlayer
+	Height   int
+	Width    int
+	Commands map[string]string
 }
 
 func NewTable() *TuiTable {
 	return &TuiTable{
 		Players: testPlayers,
+		Commands: map[string]string{
+			"n": "start game",
+			"b": "place bet",
+			"h": "hit",
+			"s": "stand",
+		},
 	}
 }
 
 func (t *TuiTable) Init() tea.Cmd {
-	return nil
+	return AddCommands(t.Commands)
 }
 
 func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
@@ -88,6 +86,7 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	}
+	cmds = append(cmds, AddCommands(t.Commands))
 	return t, tea.Batch(cmds...)
 }
 
@@ -105,27 +104,27 @@ func (t *TuiTable) renderMiddle() string {
 }
 
 func (t *TuiTable) renderVerticalZone1() string {
-	p1Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4)
-	p2Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4).PaddingBottom(5)
-	playerOne := p1Style.Render(t.Players[1].renderPlayerZone())
-	playerTwo := p2Style.Render(t.Players[2].renderPlayerZone())
-	return lipgloss.JoinVertical(lipgloss.Top, playerOne, playerTwo)
+	p4Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4).Foreground(lipgloss.Color(foreground))
+	p5Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4).PaddingBottom(5).Foreground(lipgloss.Color(foreground))
+	playerFive := p4Style.Render(t.Players[5].renderPlayerZone())
+	playerFour := p5Style.Render(t.Players[4].renderPlayerZone())
+	return lipgloss.JoinVertical(lipgloss.Top, playerFive, playerFour)
 }
 
 func (t *TuiTable) renderVerticalZone2() string {
-	dealerStyle := lipgloss.NewStyle().PaddingRight(4).PaddingTop(1)
-	p3Style := lipgloss.NewStyle().PaddingTop(6).PaddingRight(4).PaddingBottom(2)
+	dealerStyle := lipgloss.NewStyle().PaddingRight(4).PaddingTop(1).Foreground(lipgloss.Color(foreground))
+	p3Style := lipgloss.NewStyle().PaddingTop(6).PaddingRight(4).PaddingBottom(2).Foreground(lipgloss.Color(foreground))
 	dealer := dealerStyle.Render(t.Players[0].renderPlayerZone())
 	player3 := p3Style.Render(t.Players[3].renderPlayerZone())
 	return lipgloss.JoinVertical(lipgloss.Top, dealer, player3)
 }
 
 func (t *TuiTable) renderVerticalZone3() string {
-	p4Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2)
-	p5Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2).PaddingBottom(5)
-	playerFour := p4Style.Render(t.Players[4].renderPlayerZone())
-	playerFive := p5Style.Render(t.Players[5].renderPlayerZone())
-	return lipgloss.JoinVertical(lipgloss.Top, playerFour, playerFive)
+	p1Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2).Foreground(lipgloss.Color(foreground))
+	p2Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2).PaddingBottom(5).Foreground(lipgloss.Color(foreground))
+	playerTwo := p2Style.Render(t.Players[2].renderPlayerZone())
+	playerOne := p1Style.Render(t.Players[1].renderPlayerZone())
+	return lipgloss.JoinVertical(lipgloss.Top, playerOne, playerTwo)
 }
 
 func (p *TuiPlayer) renderPlayerZone() string {

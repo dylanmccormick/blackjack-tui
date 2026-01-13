@@ -66,22 +66,30 @@ func NewMenuModel() *MenuModel {
 }
 
 func (mm *MenuModel) Init() tea.Cmd {
-	return nil
+	commands := map[string]string{
+		"j":     "down",
+		"k":     "up",
+		"enter": "select",
+		"esc":   "back",
+	}
+	return AddCommands(commands)
 }
 
 func (mm *MenuModel) View() string {
 	// I should probably use a bubbles list
+	viewStyle := lipgloss.NewStyle().Width(40).Align(lipgloss.Center, lipgloss.Center)
+	var view string
 	switch mm.page {
 	case mainMenu:
-		return mm.MainMenuView()
+		view = mm.MainMenuView()
 	case tableMenu:
-		return mm.TableView()
+		view = mm.TableView()
 	case serverMenu:
-		return mm.ServerView()
+		view = mm.ServerView()
 	case settingsMenu:
-		return mm.ViewSettings()
+		view = mm.ViewSettings()
 	}
-	return ""
+	return viewStyle.Render(view)
 }
 
 func (mm *MenuModel) MainMenuView() string {

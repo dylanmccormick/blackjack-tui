@@ -38,7 +38,7 @@ func CardToCard(pc protocol.CardDTO) *Card {
 	log.Printf("translating card %#v", pc)
 	card := &Card{}
 	if strings.ToLower(pc.Suit) == "spade" {
-		card.Suit = 2
+		card.Suit = 0
 	} else if strings.ToLower(pc.Suit) == "diamond" {
 		card.Suit = 1
 	} else if strings.ToLower(pc.Suit) == "heart" {
