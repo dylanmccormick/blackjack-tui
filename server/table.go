@@ -10,6 +10,8 @@ import (
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
 
+const ACTION_TIMEOUT = 30 * time.Second
+
 type inboundMessage struct {
 	data   []byte
 	client *Client
@@ -31,7 +33,7 @@ type Table struct {
 }
 
 func newTable(name string) *Table {
-	return &Table{
+	t := &Table{
 		clients:        make(map[*Client]bool),
 		registerChan:   make(chan *Client),
 		unregisterChan: make(chan *Client),
@@ -40,9 +42,12 @@ func newTable(name string) *Table {
 		stopChan:       make(chan struct{}),
 		id:             name,
 		game:           game.NewGame(),
-		betTimer:       time.NewTimer(30 * time.Second),
-		actionTimer:    time.NewTimer(30 * time.Second),
+		betTimer:       time.NewTimer(ACTION_TIMEOUT),
+		actionTimer:    time.NewTimer(ACTION_TIMEOUT),
 	}
+	t.betTimer.Stop()
+	t.actionTimer.Stop()
+	return t
 }
 
 func (t *Table) register(c *Client) {
@@ -67,10 +72,16 @@ func (t *Table) run() {
 			return
 		case client := <-t.registerChan:
 			slog.Info("attempting to register client", "client", client.id)
+			playerReconnecting := t.game.GetPlayer(client.id) != nil
+			if !playerReconnecting {
+				p := game.NewPlayer(client.id)
+				p.Name = "lugubrious_bagel"
+				t.game.AddPlayer(p)
+			}
 			t.clients[client] = true
-			p := game.NewPlayer(client.id)
-			p.Name = "lugubrious_bagel"
-			t.game.AddPlayer(p)
+			if t.game.State == game.WAIT_FOR_START {
+				t.game.State = game.WAITING_FOR_BETS
+			}
 		case client := <-t.unregisterChan:
 			// Unintentionally Left Table (connection issue or pkill or whatever)
 			slog.Info("attempting to unregister client", "client", client.id)
@@ -89,6 +100,7 @@ func (t *Table) run() {
 		case <-t.actionTimer.C:
 			slog.Info("ACTION TIMER EXPIRED")
 			t.game.Stay(t.game.CurrentPlayer())
+			t.actionTimer.Reset(ACTION_TIMEOUT)
 			if t.game.State == game.DEALER_TURN {
 				t.autoProgress()
 			}
@@ -118,7 +130,7 @@ func (t *Table) handleCommand(command *protocol.TransportMessage, c *Client) {
 	switch command.Type {
 	case protocol.MsgStartGame:
 		slog.Info("Starting game")
-		t.betTimer.Reset(30 * time.Second)
+		t.betTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgPlaceBet:
 		slog.Info("Betting")
 		value := protocol.ValueMessage{}
@@ -133,9 +145,10 @@ func (t *Table) handleCommand(command *protocol.TransportMessage, c *Client) {
 	case protocol.MsgHit:
 		slog.Info("Hitting")
 		t.game.Hit(t.game.GetPlayer(c.id))
-		t.actionTimer.Reset(30 * time.Second)
+		t.actionTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgStand:
 		t.game.Stay(t.game.GetPlayer(c.id))
+		t.actionTimer.Reset(ACTION_TIMEOUT)
 		slog.Info("Standing")
 	case protocol.MsgLeaveTable:
 		// intentionally left table
@@ -170,14 +183,14 @@ OuterLoop:
 		case game.DEALING:
 			slog.Info("DEALING CARDS")
 			t.game.DealCards()
-			t.actionTimer.Reset(30 * time.Second)
+			t.actionTimer.Reset(ACTION_TIMEOUT)
 		case game.DEALER_TURN:
 			slog.Info("PLAYING DEALER")
 			t.game.PlayDealer()
 		case game.RESOLVING_BETS:
 			slog.Info("RESOLVING BETS")
 			t.game.ResolveBets()
-			t.betTimer.Reset(30 * time.Second)
+			t.betTimer.Reset(ACTION_TIMEOUT)
 		default:
 			t.broadcastGameState()
 			break OuterLoop

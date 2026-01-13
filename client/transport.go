@@ -61,6 +61,10 @@ func (ws *WsTransportMessageIO) Connect() error {
 }
 
 func (ws *WsTransportMessageIO) SendData(tm *protocol.TransportMessage) error {
+	err := ws.conn.WriteJSON(tm)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

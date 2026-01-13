@@ -19,7 +19,8 @@ type (
 		availableTables []*protocol.TableDTO
 		page            mPage
 		menuItems       []string
-		textInput       textinput.Model
+		serverTextInput textinput.Model
+		tableTextInput  textinput.Model
 		savedServers    []string
 	}
 )
@@ -35,6 +36,11 @@ func NewMenuModel() *MenuModel {
 	serverText := textinput.New()
 	serverText.Placeholder = "http://localhost:3030"
 	serverText.Width = 40
+
+	tableText := textinput.New()
+	tableText.Placeholder = "my_cool_table"
+	tableText.Width = 40
+
 	return &MenuModel{
 		availableTables: []*protocol.TableDTO{
 			{Id: "placeholder", Capacity: 5, CurrentPlayers: 0},
@@ -50,7 +56,8 @@ func NewMenuModel() *MenuModel {
 			"Tables",
 			"Settings",
 		},
-		textInput: serverText,
+		serverTextInput: serverText,
+		tableTextInput:  tableText,
 		savedServers: []string{
 			"localhost:8080",
 			"localhost:3030",
@@ -100,6 +107,7 @@ func (mm *MenuModel) TableView() string {
 			items = append(items, fmt.Sprintf("%d %s %d/%d\n", i, table.Id, table.CurrentPlayers, table.Capacity))
 		}
 	}
+	items = append(items, mm.tableTextInput.View())
 	return lipgloss.JoinVertical(lipgloss.Left, items...)
 }
 
@@ -122,22 +130,38 @@ func (mm *MenuModel) TableUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case TextFocusMsg:
+		mm.tableTextInput.Focus()
 	case ChangeMenuPage:
 		mm.page = msg.page
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
-			cmd = ChangeMenuPageCmd(mainMenu)
-			cmds = append(cmds, cmd)
+			if mm.tableTextInput.Focused() {
+				mm.tableTextInput.Blur()
+			} else {
+				cmds = append(cmds, ChangeMenuPageCmd(mainMenu))
+			}
 		case tea.KeyEnter:
 			// this could be a command?
-			log.Printf("Attempting to join table: %s", mm.availableTables[mm.currTableIndex].Id)
-			cmd = SendData(protocol.PackageClientMessage(protocol.MsgJoinTable, mm.availableTables[mm.currTableIndex].Id))
-			cmds = append(cmds, cmd)
-			cmd = ChangeRootPage(gamePage)
-			cmds = append(cmds, cmd)
+			var tableName string
+			if mm.tableTextInput.Focused() {
+				tableName = mm.tableTextInput.Value()
+				cmd = SendData(protocol.PackageClientMessage(protocol.MsgCreateTable, tableName))
+				cmds = append(cmds, cmd)
+			} else {
+				tableName = mm.availableTables[mm.currTableIndex].Id
+				cmd = SendData(protocol.PackageClientMessage(protocol.MsgJoinTable, tableName))
+				cmds = append(cmds, cmd)
+				log.Printf("Attempting to join table: %s", tableName)
+				cmd = ChangeRootPage(gamePage)
+				cmds = append(cmds, cmd)
+			}
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
+			case "n":
+				cmd = TextFocusCmd()
+				cmds = append(cmds, cmd)
 			case "j":
 				if mm.currTableIndex+1 < len(mm.availableTables) {
 					mm.currTableIndex += 1
@@ -147,11 +171,17 @@ func (mm *MenuModel) TableUpdate(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if mm.currTableIndex-1 >= 0 {
 					mm.currTableIndex -= 1
 				}
+
 				// raise the index on the room
 			}
 		}
 	case []*protocol.TableDTO:
 		mm.TablesToState(msg)
+	}
+
+	if mm.tableTextInput.Focused() {
+		mm.tableTextInput, cmd = mm.tableTextInput.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 
 	return mm, tea.Batch(cmds...)
@@ -238,7 +268,7 @@ func (mm *MenuModel) ServerView() string {
 			view = append(view, fmt.Sprintf("%s\n", menuItem))
 		}
 	}
-	view = append(view, mm.textInput.View())
+	view = append(view, mm.serverTextInput.View())
 	return lipgloss.JoinVertical(lipgloss.Left, view...)
 }
 
@@ -249,12 +279,12 @@ func (mm *MenuModel) UpdateServer(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ChangeMenuPage:
 		mm.page = msg.page
 	case TextFocusMsg:
-		mm.textInput.Focus()
+		mm.serverTextInput.Focus()
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:
-			if mm.textInput.Focused() {
-				mm.textInput.Blur()
+			if mm.serverTextInput.Focused() {
+				mm.serverTextInput.Blur()
 			} else {
 				cmds = append(cmds, ChangeMenuPageCmd(mainMenu))
 			}
@@ -279,8 +309,8 @@ func (mm *MenuModel) UpdateServer(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if mm.textInput.Focused() {
-		mm.textInput, cmd = mm.textInput.Update(msg)
+	if mm.serverTextInput.Focused() {
+		mm.serverTextInput, cmd = mm.serverTextInput.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 
@@ -294,7 +324,7 @@ func (mm *MenuModel) UpdateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ChangeMenuPage:
 		mm.page = msg.page
 	case TextFocusMsg:
-		mm.textInput.Focus()
+		mm.serverTextInput.Focus()
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEsc:

@@ -27,11 +27,12 @@ type manager interface {
 }
 
 type Client struct {
-	conn  *websocket.Conn
-	mu    sync.Mutex
-	id    uuid.UUID
-	manager manager
-	send  chan []byte
+	conn     *websocket.Conn
+	mu       sync.Mutex
+	id       uuid.UUID
+	manager  manager
+	send     chan []byte
+	username string
 }
 
 const (
@@ -82,12 +83,11 @@ func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	client := &Client{
-		conn: conn,
-		send: make(chan []byte, 10),
-		id:   generateId(conn),
+		conn:    conn,
+		send:    make(chan []byte, 10),
+		id:      generateId(conn),
 		manager: lobby,
 	}
-	slog.Info("Registering client to table")
 	client.manager.register(client)
 
 	go client.readPump()

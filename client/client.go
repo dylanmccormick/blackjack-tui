@@ -43,10 +43,6 @@ type RootModel struct {
 
 func (rm *RootModel) Init() tea.Cmd {
 	rm.page = loginPage
-	err := rm.transporter.SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
-	if err != nil {
-		log.Print(err)
-	}
 	return tea.Batch(
 		rm.menuModel.Init(),
 		tea.ClearScreen,
@@ -87,8 +83,9 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "c":
 				// todo... turn this into a command!
 				rm.transporter.Connect()
+				cmd := SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
+				cmds = append(cmds, cmd)
 			}
-			cmds = append(cmds, cmd)
 		}
 	case tea.WindowSizeMsg:
 		rm.width = msg.Width

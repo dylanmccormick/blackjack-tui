@@ -62,22 +62,13 @@ type Game struct {
 func NewGame() *Game {
 	slog.Debug("Creating game")
 	return &Game{
-		State:              WAITING_FOR_BETS,
+		State:              WAIT_FOR_START,
 		Deck:               CreateDeck(DECK_COUNT, CUT_LOCATION), // TODO: Get from config file
 		Players:            make([]*Player, PLAYER_LIMIT),        // This can change. Maybe a table can have 6 players?
 		DealerHand:         &Hand{},
 		BetTime:            30, // TODO: Get from Config file
 		CurrentPlayerIndex: 0,
 	}
-}
-
-func (g *Game) GetPlayer(playerId uuid.UUID) *Player {
-	for _, p := range g.Players {
-		if p.ID == playerId {
-			return p
-		}
-	}
-	return nil
 }
 
 func (g *Game) RemovePlayer(playerId uuid.UUID) error {
@@ -128,6 +119,11 @@ func (g *Game) StartPlayerTurn() error {
 		return err
 	}
 	g.State = PLAYER_TURN
+	p := g.CurrentPlayer()
+	if !p.DisconnectedAt.IsZero() {
+		// automatic stay if player is disconnected.
+		g.Stay(p)
+	}
 	return nil
 }
 
@@ -366,6 +362,9 @@ func (g *Game) checkState(expected GameState, method string) error {
 
 func (g *Game) GetPlayer(playerId uuid.UUID) *Player {
 	for _, p := range g.Players {
+		if p == nil {
+			continue
+		}
 		if p.ID == playerId {
 			return p
 		}

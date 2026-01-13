@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
+const DISCONNECT_TIMEOUT = 3 * time.Minute
+
 type Player struct {
 	Name   string
 	ID     uuid.UUID
@@ -17,9 +19,9 @@ type Player struct {
 	Hand   *Hand
 
 	// Connection logic
-	ConnectedAt               time.Time
-	DisconnectedAt            time.Time // this will be good for time-in-game metrics or stats later
-	IntentionallyDisconnected bool
+	ConnectedAt           time.Time
+	DisconnectedAt        time.Time // this will be good for time-in-game metrics or stats later
+	IntentionalDisconnect bool
 }
 
 func NewPlayer(id uuid.UUID) *Player {
@@ -72,16 +74,21 @@ func (p *Player) IsActive() bool {
 }
 
 func (p *Player) ShouldRemove() bool {
-	if p.IntentionallyDisconnected {
+	if p.IntentionalDisconnect {
 		return true
-	} else if time.Since(p.DisconnectedAt) > 3*time.Minute {
+	} else if time.Since(p.DisconnectedAt) > DISCONNECT_TIMEOUT {
 		return true
 	}
 	return false
 }
 
-func (p *Player) MarkReconnected() {}
+func (p *Player) MarkReconnected() {
+	// I think this will reset to zero
+	p.DisconnectedAt = time.Time{}
+	p.IntentionalDisconnect = true
+}
+
 func (p *Player) MarkDisconnected(intentional bool) {
 	p.DisconnectedAt = time.Now()
-	p.IntentionallyDisconnected = intentional
+	p.IntentionalDisconnect = intentional
 }

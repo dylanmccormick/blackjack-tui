@@ -76,6 +76,8 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
+			case "n":
+				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgStartGame, "")))
 			case "b":
 				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5")))
 			case "h":

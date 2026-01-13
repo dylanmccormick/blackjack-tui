@@ -1,8 +1,8 @@
 package server
 
 import (
+	"encoding/json"
 	"log/slog"
-	"strings"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
@@ -53,38 +53,43 @@ func (l *Lobby) run() {
 }
 
 func (l *Lobby) processMessage(msg inboundMessage) {
-	// jsonMsg := &protocol.TransportMessage{}
-	// json.Unmarshal(msg, jsonMsg)
-	data := msg.data
-	strMsg := string(data)
-	parts := strings.Split(strMsg, " ")
-	for _, p := range parts {
-		slog.Info(p)
+	tranMsg, err := unpackMessage(msg)
+	if err != nil {
+		slog.Error("unable to unpack transport message", err)
 	}
-	l.handleCommand(parts, msg.client)
+	l.handleCommand(tranMsg, msg.client)
 
 	slog.Info("returning from processMessage")
 }
 
-func (l *Lobby) handleCommand(cmd []string, c *Client) {
+func getValueFromRawValueMessage(raw json.RawMessage) (string, error) {
+	value := protocol.ValueMessage{}
+	err := json.Unmarshal(raw, &value)
+	if err != nil {
+		slog.Error("Got bad data from value in transport message", "raw", string(raw))
+	}
+	return value.Value, nil
+}
+
+func (l *Lobby) handleCommand(command *protocol.TransportMessage, c *Client) {
 	// join table, change username, get stats, etc
-	slog.Info("lobby got command", "command", cmd)
-	switch cmd[0] {
-	case "create":
-		if len(cmd) < 2 {
-			slog.Error("Not enough arguments")
+	slog.Info("lobby got command", "command", command)
+	switch command.Type {
+	case protocol.MsgCreateTable:
+		val, err := getValueFromRawValueMessage(command.Data)
+		if err != nil {
 			return
 		}
-		slog.Info("Attempting to create table", "name", cmd[1])
-		l.createTable(cmd[1])
-	case "join":
-		if len(cmd) < 2 {
-			slog.Error("Not enough arguments")
+		slog.Info("Attempting to create table", "name", val)
+		l.createTable(val)
+	case protocol.MsgJoinTable:
+		val, err := getValueFromRawValueMessage(command.Data)
+		if err != nil {
 			return
 		}
-		slog.Info("Attempting to join table", "name", cmd[1])
-		l.joinTable(cmd[1], c)
-	case "list":
+		slog.Info("Attempting to join table", "name", val)
+		l.joinTable(val, c)
+	case protocol.MsgTableList:
 		slog.Info("Listing Tables")
 		l.listTables(c)
 	}
