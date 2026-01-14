@@ -42,6 +42,8 @@ type RootModel struct {
 	footerModel tea.Model
 }
 
+var ROOT_COMMANDS = map[string]string{"ctrl+c": "quit"}
+
 func (rm *RootModel) Init() tea.Cmd {
 	rm.page = loginPage
 	commands := map[string]string{"ctrl+c": "quit"}
@@ -59,7 +61,6 @@ type errMsg struct {
 
 func (rm *RootModel) Send(data *protocol.TransportMessage) tea.Cmd {
 	return func() tea.Msg {
-		log.Printf("sending data: %#v", data)
 		err := rm.transporter.SendData(data)
 		if err != nil {
 			return errMsg{err}
@@ -96,15 +97,12 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	switch rm.page {
 	case menuPage:
-		log.Println("Updating menu page")
 		rm.menuModel, cmd = rm.menuModel.Update(msg)
 		cmds = append(cmds, cmd)
 	case loginPage:
-		log.Println("Loading game")
 		rm.loginModel, cmd = rm.loginModel.Update(msg)
 		cmds = append(cmds, cmd)
 	case gamePage:
-		log.Println("Updating table page")
 		rm.table, cmd = rm.table.Update(msg)
 		cmds = append(cmds, cmd)
 	}
@@ -178,7 +176,6 @@ func RunTui(mock *bool) {
 		}
 		defer f.Close()
 	}
-	log.Printf("%#v", os.Args)
 	if *mock {
 		log.Println("running in mock mode")
 		rm = NewRootModel(NewMockTransporter())

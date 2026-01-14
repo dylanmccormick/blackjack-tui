@@ -129,6 +129,7 @@ func (t *Table) processMessage(msg inboundMessage) {
 func (t *Table) handleCommand(command *protocol.TransportMessage, c *Client) {
 	switch command.Type {
 	case protocol.MsgStartGame:
+		// TODO: add a check to make sure that the game hasn't already been started. You can spam this button to constantly reset the timer
 		slog.Info("Starting game")
 		t.betTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgPlaceBet:

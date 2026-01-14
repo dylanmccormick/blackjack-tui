@@ -69,6 +69,7 @@ func (ws *WsTransportMessageIO) SendData(tm *protocol.TransportMessage) error {
 }
 
 func (ws *WsTransportMessageIO) FetchData() {
+	log.Println("starting fetch data")
 	for {
 		select {
 		case <-ws.disconnect:

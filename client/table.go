@@ -16,6 +16,13 @@ type TuiTable struct {
 	Commands map[string]string
 }
 
+var GAME_COMMANDS = map[string]string{
+	"n": "start game",
+	"b": "place bet",
+	"h": "hit",
+	"s": "stand",
+}
+
 func NewTable() *TuiTable {
 	return &TuiTable{
 		Players: testPlayers,
@@ -33,7 +40,6 @@ func (t *TuiTable) Init() tea.Cmd {
 }
 
 func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
-	log.Println("Translating game to state")
 	for i := 1; i < 6; i++ {
 		player := t.Players[i]
 		if len(msg.Players) < i {
@@ -50,6 +56,7 @@ func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
 		player.Bet = receivedPlayer.Bet
 		player.Wallet = receivedPlayer.Wallet
 		player.Name = receivedPlayer.Name
+		log.Printf("Adding player %s to board", player.Name)
 		t.Players[i] = player
 	}
 	dealer := t.Players[0]
@@ -86,7 +93,6 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	}
-	cmds = append(cmds, AddCommands(t.Commands))
 	return t, tea.Batch(cmds...)
 }
 

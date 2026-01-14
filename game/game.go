@@ -109,6 +109,15 @@ func (g *Game) StartRound() error {
 	if err != nil {
 		return err
 	}
+	for i, player := range g.Players {
+		if player == nil {
+			continue
+		}
+		if player.Bet == 0 {
+			player.State = INACTIVE
+			g.Players[i] = player
+		}
+	}
 	g.State = DEALING
 	return nil
 }
@@ -123,6 +132,7 @@ func (g *Game) StartPlayerTurn() error {
 	if !p.DisconnectedAt.IsZero() {
 		// automatic stay if player is disconnected.
 		g.Stay(p)
+		p.State = INACTIVE
 	}
 	return nil
 }

@@ -19,6 +19,7 @@ func (lm *LoginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			// this could be a command?
 			cmds = append(cmds, ChangeRootPage(menuPage))
+			cmds = append(cmds, AddCommands(ROOT_COMMANDS))
 		}
 	}
 	return lm, tea.Batch(cmds...)
