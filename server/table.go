@@ -13,7 +13,8 @@ import (
 const ACTION_TIMEOUT = 30 * time.Second
 
 type inboundMessage struct {
-	data   []byte
+	data *protocol.TransportMessage
+	// data   []byte // TODO: This should be transport message type
 	client *Client
 }
 
@@ -38,7 +39,7 @@ func newTable(name string) *Table {
 		registerChan:   make(chan *Client),
 		unregisterChan: make(chan *Client),
 		inbound:        make(chan inboundMessage),
-		outbound:       make(chan []byte),
+		outbound:       make(chan []byte), // TODO: This should also be transport message type
 		stopChan:       make(chan struct{}),
 		id:             name,
 		game:           game.NewGame(),
@@ -90,8 +91,8 @@ func (t *Table) run() {
 				close(client.send)
 			}
 		case message := <-t.inbound:
-			slog.Info("Received message", "message", string(message.data))
-			t.processMessage(message)
+			slog.Info("Received message", "message", message.data)
+			t.handleCommand(message)
 			t.autoProgress()
 		case <-t.betTimer.C:
 			slog.Info("BET TIMER EXPIRED")
@@ -108,53 +109,42 @@ func (t *Table) run() {
 	}
 }
 
-func unpackMessage(msg inboundMessage) (*protocol.TransportMessage, error) {
-	jsonMsg := &protocol.TransportMessage{}
-	err := json.Unmarshal(msg.data, jsonMsg)
-	if err != nil {
-		return &protocol.TransportMessage{}, err
-	}
-	return jsonMsg, nil
-}
+// the read pump should be handling this
 
-func (t *Table) processMessage(msg inboundMessage) {
-	tranMsg, err := unpackMessage(msg)
-	if err != nil {
-		slog.Error("unable to unpack transport message", err)
-		return
-	}
-	t.handleCommand(tranMsg, msg.client)
-}
-
-func (t *Table) handleCommand(command *protocol.TransportMessage, c *Client) {
-	switch command.Type {
+func (t *Table) handleCommand(msg inboundMessage) {
+	switch msg.data.Type {
 	case protocol.MsgStartGame:
 		// TODO: add a check to make sure that the game hasn't already been started. You can spam this button to constantly reset the timer
 		slog.Info("Starting game")
+		err := t.game.StartGame()
+		if err != nil {
+			slog.Warn("Attempted to start the game after it has already been started")
+			return
+		}
 		t.betTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgPlaceBet:
 		slog.Info("Betting")
 		value := protocol.ValueMessage{}
-		err := json.Unmarshal(command.Data, &value)
+		err := json.Unmarshal(msg.data.Data, &value)
 		if err != nil {
-			slog.Error("Got bad data from command", "command", command)
+			slog.Error("Got bad data from command", "command", msg.data)
 		}
 		bet, err := strconv.Atoi(value.Value)
-		t.game.PlaceBet(t.game.GetPlayer(c.id), bet)
+		t.game.PlaceBet(t.game.GetPlayer(msg.client.id), bet)
 	case protocol.MsgDealCards:
 		t.game.DealCards()
 	case protocol.MsgHit:
 		slog.Info("Hitting")
-		t.game.Hit(t.game.GetPlayer(c.id))
+		t.game.Hit(t.game.GetPlayer(msg.client.id))
 		t.actionTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgStand:
-		t.game.Stay(t.game.GetPlayer(c.id))
+		t.game.Stay(t.game.GetPlayer(msg.client.id))
 		t.actionTimer.Reset(ACTION_TIMEOUT)
 		slog.Info("Standing")
 	case protocol.MsgLeaveTable:
 		// intentionally left table
 		// press ctrl+c or leave button
-		t.cmdLeaveTable(c)
+		t.cmdLeaveTable(msg.client)
 	}
 }
 

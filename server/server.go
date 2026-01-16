@@ -2,12 +2,14 @@ package server
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/dylanmccormick/blackjack-tui/protocol"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -31,7 +33,7 @@ type Client struct {
 	mu       sync.Mutex
 	id       uuid.UUID
 	manager  manager
-	send     chan []byte
+	send     chan *protocol.TransportMessage
 	username string
 }
 
@@ -84,7 +86,7 @@ func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
 	}
 	client := &Client{
 		conn:    conn,
-		send:    make(chan []byte, 10),
+		send:    make(chan *protocol.TransportMessage, 10),
 		id:      generateId(conn),
 		manager: lobby,
 	}
@@ -109,9 +111,19 @@ func (c *Client) readPump() {
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
+		uMsg, err := unpackMessage(message)
 		slog.Info("writing message to manager", "manager", c.manager.Id())
-		c.manager.sendMessage(inboundMessage{message, c})
+		c.manager.sendMessage(inboundMessage{uMsg, c})
 	}
+}
+
+func unpackMessage(msg []byte) (*protocol.TransportMessage, error) {
+	jsonMsg := &protocol.TransportMessage{}
+	err := json.Unmarshal(msg, jsonMsg)
+	if err != nil {
+		return &protocol.TransportMessage{}, err
+	}
+	return jsonMsg, nil
 }
 
 func (c *Client) writePump() {
@@ -129,18 +141,12 @@ func (c *Client) writePump() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			slog.Info("Writing message", "message", string(message))
-			w.Write(message)
+			slog.Info("Writing message", "message", message)
+			c.conn.WriteJSON(message)
 			for range len(c.send) {
-				w.Write(newline)
-				w.Write(<-c.send)
-			}
-			if err := w.Close(); err != nil {
-				return
+				msg := <-c.send
+				slog.Info("Writing message", "message", msg)
+				c.conn.WriteJSON(msg)
 			}
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))

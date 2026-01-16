@@ -31,7 +31,7 @@ type ValueMessage struct {
 	Value string `json:"value"`
 }
 
-func PackageMessage(dto any) ([]byte, error) {
+func PackageMessage(dto any) (*TransportMessage, error) {
 	// TODO: change this to return a transport message. The IO handler should be translating json -> bytes. websocket.WriteJSON
 	message := TransportMessage{}
 	data, err := json.Marshal(dto)
@@ -46,11 +46,7 @@ func PackageMessage(dto any) ([]byte, error) {
 		message.Type = MsgTableList
 	}
 
-	packagedMessage, err := json.Marshal(message)
-	if err != nil {
-		return nil, err
-	}
-	return packagedMessage, nil
+	return &message, nil
 }
 
 func PackageClientMessage(typ, val string) *TransportMessage {

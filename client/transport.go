@@ -184,7 +184,7 @@ func generateGameData() []*protocol.TransportMessage {
 	if err != nil {
 		panic(err)
 	}
-	return ParseTransportMessage(dat)
+	return []*protocol.TransportMessage{dat}
 }
 
 func generateTableData() []*protocol.TransportMessage {
@@ -193,7 +193,7 @@ func generateTableData() []*protocol.TransportMessage {
 	if err != nil {
 		panic(err)
 	}
-	return ParseTransportMessage(dat)
+	return []*protocol.TransportMessage{dat}
 }
 
 func (m *MockTransportMessageIO) GetChan() chan *protocol.TransportMessage {

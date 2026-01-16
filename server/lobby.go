@@ -47,19 +47,9 @@ func (l *Lobby) run() {
 				close(client.send)
 			}
 		case msg := <-l.inbound:
-			l.processMessage(msg)
+			l.handleCommand(msg)
 		}
 	}
-}
-
-func (l *Lobby) processMessage(msg inboundMessage) {
-	tranMsg, err := unpackMessage(msg)
-	if err != nil {
-		slog.Error("unable to unpack transport message", err)
-	}
-	l.handleCommand(tranMsg, msg.client)
-
-	slog.Info("returning from processMessage")
 }
 
 func getValueFromRawValueMessage(raw json.RawMessage) (string, error) {
@@ -71,27 +61,27 @@ func getValueFromRawValueMessage(raw json.RawMessage) (string, error) {
 	return value.Value, nil
 }
 
-func (l *Lobby) handleCommand(command *protocol.TransportMessage, c *Client) {
+func (l *Lobby) handleCommand(msg inboundMessage) {
 	// join table, change username, get stats, etc
-	slog.Info("lobby got command", "command", command)
-	switch command.Type {
+	slog.Info("lobby got command", "command", msg.data)
+	switch msg.data.Type {
 	case protocol.MsgCreateTable:
-		val, err := getValueFromRawValueMessage(command.Data)
+		val, err := getValueFromRawValueMessage(msg.data.Data)
 		if err != nil {
 			return
 		}
 		slog.Info("Attempting to create table", "name", val)
 		l.createTable(val)
 	case protocol.MsgJoinTable:
-		val, err := getValueFromRawValueMessage(command.Data)
+		val, err := getValueFromRawValueMessage(msg.data.Data)
 		if err != nil {
 			return
 		}
 		slog.Info("Attempting to join table", "name", val)
-		l.joinTable(val, c)
+		l.joinTable(val, msg.client)
 	case protocol.MsgTableList:
 		slog.Info("Listing Tables")
-		l.listTables(c)
+		l.listTables(msg.client)
 	}
 }
 

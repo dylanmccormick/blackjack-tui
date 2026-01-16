@@ -95,6 +95,15 @@ func (g *Game) AddPlayer(p *Player) error {
 	return fmt.Errorf("Table is full")
 }
 
+func (g *Game) StartGame() error {
+	err := g.checkState(WAIT_FOR_START, "StartGame")
+	if err != nil {
+		return err
+	}
+	g.State = WAITING_FOR_BETS
+	return nil
+}
+
 func (g *Game) StartBetting() error {
 	err := g.checkState(RESOLVING_BETS, "StartBetting")
 	if err != nil {
