@@ -12,6 +12,7 @@
 - selecting a server
 - settings menu to change username or something like that
 - allow user to change bet amount
+- BUG: commands are not updating for each page. Will need to fix that
 
 ## Features
 
