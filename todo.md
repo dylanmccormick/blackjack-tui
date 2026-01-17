@@ -8,7 +8,6 @@
 
 ## UI TODO
 
-- design empty spot for players and implement that
 - selecting a server
 - settings menu to change username or something like that
 - allow user to change bet amount

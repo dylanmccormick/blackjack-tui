@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
@@ -14,6 +15,7 @@ type TuiTable struct {
 	Height   int
 	Width    int
 	Commands map[string]string
+	betInput textinput.Model
 }
 
 var GAME_COMMANDS = map[string]string{
@@ -24,6 +26,9 @@ var GAME_COMMANDS = map[string]string{
 }
 
 func NewTable() *TuiTable {
+	betText := textinput.New()
+	betText.Placeholder = "5"
+	betText.Width = 5
 	return &TuiTable{
 		Players: testPlayers,
 		Commands: map[string]string{
@@ -32,6 +37,7 @@ func NewTable() *TuiTable {
 			"h": "hit",
 			"s": "stand",
 		},
+		betInput: betText,
 	}
 }
 
@@ -74,17 +80,26 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case TextFocusMsg:
+		t.betInput.Focus()
 	case *protocol.GameDTO:
 		t.GameMessageToState(msg)
+	case SaveBetMsg:
+		cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgPlaceBet, t.betInput.Value())))
 	case tea.KeyMsg:
 		// Top Level Keys. Kill the program type keys
 		switch msg.Type {
+		case tea.KeyEnter:
+			if t.betInput.Focused() {
+				cmds = append(cmds, SaveBetCmd())
+				t.betInput.Blur()
+			}
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
 			case "n":
 				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgStartGame, "")))
 			case "b":
-				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5")))
+				cmds = append(cmds, TextFocusCmd())
 			case "h":
 				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgHit, "")))
 			case "s":
@@ -92,6 +107,10 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			cmds = append(cmds, cmd)
 		}
+	}
+	if t.betInput.Focused() {
+		t.betInput, cmd = t.betInput.Update(msg)
+		cmds = append(cmds, cmd)
 	}
 	return t, tea.Batch(cmds...)
 }
@@ -101,6 +120,14 @@ func (t *TuiTable) View() string {
 	style := lipgloss.NewStyle().Foreground(color).Border(lipgloss.DoubleBorder())
 	return style.Render(t.renderMiddle())
 }
+
+func SaveBetCmd() tea.Cmd {
+	return func() tea.Msg {
+		return SaveBetMsg{}
+	}
+}
+
+type SaveBetMsg struct{}
 
 func (t *TuiTable) renderMiddle() string {
 	vzone1 := t.renderVerticalZone1()
@@ -117,12 +144,22 @@ func (t *TuiTable) renderVerticalZone1() string {
 	return lipgloss.JoinVertical(lipgloss.Top, playerFive, playerFour)
 }
 
+func (t *TuiTable) renderBetDialogue() string {
+	betPrompt := "Input Bet Amount:"
+	if t.betInput.Focused() {
+		return lipgloss.JoinVertical(lipgloss.Top, betPrompt, t.betInput.View())
+	}
+	return ""
+}
+
 func (t *TuiTable) renderVerticalZone2() string {
-	dealerStyle := lipgloss.NewStyle().PaddingRight(4).PaddingTop(1).Foreground(lipgloss.Color(foreground))
-	p3Style := lipgloss.NewStyle().PaddingTop(6).PaddingRight(4).PaddingBottom(2).Foreground(lipgloss.Color(foreground))
+	dealerStyle := lipgloss.NewStyle().PaddingRight(4).PaddingTop(1).PaddingBottom(1).Foreground(lipgloss.Color(foreground))
+	betStyle := lipgloss.NewStyle().Height(2).Foreground(lipgloss.Color(highlight)).Align(lipgloss.Center, lipgloss.Center)
+	p3Style := lipgloss.NewStyle().PaddingTop(3).PaddingRight(4).PaddingBottom(2).Foreground(lipgloss.Color(foreground))
 	dealer := dealerStyle.Render(t.Players[0].renderPlayerZone())
+	betDialogue := betStyle.Render(t.renderBetDialogue())
 	player3 := p3Style.Render(t.Players[3].renderPlayerZone())
-	return lipgloss.JoinVertical(lipgloss.Top, dealer, player3)
+	return lipgloss.JoinVertical(lipgloss.Top, dealer, betDialogue, player3)
 }
 
 func (t *TuiTable) renderVerticalZone3() string {
