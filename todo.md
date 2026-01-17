@@ -3,9 +3,7 @@
 ## Server ToDo
 
 - Make values paramaters with a config file at some point
-- table.go make sure that game isn't started already when start command is sent
 - generate id from websocket to make sure that it is sticky.
-- update package message to return a transport message like the other package method does
 - BUG: when a player leaves a game and there are no active players, the server crashes
 
 ## UI TODO
@@ -22,3 +20,7 @@
 - searchable table names?
 - Host it somewhere/ actually play with some friends
 - displaying messages from the game like "waiting for all players to finish betting"
+
+## Done... I think
+- table.go make sure that game isn't started already when start command is sent
+- update package message to return a transport message like the other package method does

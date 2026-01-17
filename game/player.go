@@ -91,4 +91,5 @@ func (p *Player) MarkReconnected() {
 func (p *Player) MarkDisconnected(intentional bool) {
 	p.DisconnectedAt = time.Now()
 	p.IntentionalDisconnect = intentional
+	p.State = INACTIVE
 }

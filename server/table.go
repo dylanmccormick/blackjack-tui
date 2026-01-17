@@ -10,7 +10,10 @@ import (
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
 
-const ACTION_TIMEOUT = 30 * time.Second
+const (
+	ACTION_TIMEOUT = 30 * time.Second
+	TABLE_TIMEOUT  = 5 * time.Minute
+)
 
 type inboundMessage struct {
 	data *protocol.TransportMessage
@@ -31,6 +34,7 @@ type Table struct {
 	game        *game.Game
 	betTimer    *time.Timer
 	actionTimer *time.Timer
+	tableTimer  *time.Timer
 }
 
 func newTable(name string) *Table {
@@ -45,9 +49,11 @@ func newTable(name string) *Table {
 		game:           game.NewGame(),
 		betTimer:       time.NewTimer(ACTION_TIMEOUT),
 		actionTimer:    time.NewTimer(ACTION_TIMEOUT),
+		tableTimer:     time.NewTimer(TABLE_TIMEOUT),
 	}
 	t.betTimer.Stop()
 	t.actionTimer.Stop()
+	t.tableTimer.Stop()
 	return t
 }
 
@@ -86,6 +92,7 @@ func (t *Table) run() {
 		case client := <-t.unregisterChan:
 			// Unintentionally Left Table (connection issue or pkill or whatever)
 			slog.Info("attempting to unregister client", "client", client.id)
+			t.DisconnectPlayer(client, false)
 			if _, ok := t.clients[client]; ok {
 				delete(t.clients, client)
 				close(client.send)
@@ -96,15 +103,25 @@ func (t *Table) run() {
 			t.autoProgress()
 		case <-t.betTimer.C:
 			slog.Info("BET TIMER EXPIRED")
-			t.game.StartRound()
+			err := t.game.StartRound()
+			if err != nil {
+			}
 			t.autoProgress()
 		case <-t.actionTimer.C:
 			slog.Info("ACTION TIMER EXPIRED")
+			if t.game.State != game.PLAYER_TURN {
+				// we don't need to reset anything if there are no actions to be waited for. i.e. the table is dead
+				continue
+			}
 			t.game.Stay(t.game.CurrentPlayer())
 			t.actionTimer.Reset(ACTION_TIMEOUT)
 			if t.game.State == game.DEALER_TURN {
 				t.autoProgress()
 			}
+		case <-t.tableTimer.C:
+			slog.Info("KILLING TABLE")
+			lobby.deleteTable(t.id)
+			// TODO: figure out how to kill the table
 		}
 	}
 }
@@ -119,6 +136,7 @@ func (t *Table) handleCommand(msg inboundMessage) {
 		err := t.game.StartGame()
 		if err != nil {
 			slog.Warn("Attempted to start the game after it has already been started")
+			t.tableTimer.Reset(TABLE_TIMEOUT)
 			return
 		}
 		t.betTimer.Reset(ACTION_TIMEOUT)
@@ -148,11 +166,16 @@ func (t *Table) handleCommand(msg inboundMessage) {
 	}
 }
 
-func (t *Table) cmdLeaveTable(c *Client) {
+func (t *Table) DisconnectPlayer(c *Client, intentional bool) {
 	player := t.game.GetPlayer(c.id)
 	if player != nil {
-		player.IntentionalDisconnect = true
+		slog.Info("Disconnecting player", "id", player.ID, "intentional?", intentional)
+		player.MarkDisconnected(intentional)
 	}
+}
+
+func (t *Table) cmdLeaveTable(c *Client) {
+	t.DisconnectPlayer(c, true)
 	lobby.register(c)
 	c.manager = lobby
 	delete(t.clients, c)

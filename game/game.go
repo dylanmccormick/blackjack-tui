@@ -104,8 +104,8 @@ func (g *Game) StartGame() error {
 	return nil
 }
 
-func (g *Game) StartBetting() error {
-	err := g.checkState(RESOLVING_BETS, "StartBetting")
+func (g *Game) EndRound() error {
+	err := g.checkState(RESOLVING_BETS, "EndRound")
 	if err != nil {
 		return err
 	}
@@ -127,6 +127,11 @@ func (g *Game) StartRound() error {
 			g.Players[i] = player
 		}
 	}
+	if len(g.ActivePlayers()) == 0 {
+		slog.Info("Starting table delete timer")
+		g.State = WAIT_FOR_START
+		return fmt.Errorf("no active players in game")
+	}
 	g.State = DEALING
 	return nil
 }
@@ -140,8 +145,8 @@ func (g *Game) StartPlayerTurn() error {
 	p := g.CurrentPlayer()
 	if !p.DisconnectedAt.IsZero() {
 		// automatic stay if player is disconnected.
+		// INACTIVE should already be set
 		g.Stay(p)
-		p.State = INACTIVE
 	}
 	return nil
 }
@@ -236,7 +241,9 @@ func (g *Game) endPlayerTurn(p *Player) error {
 	if p != g.CurrentPlayer() {
 		return fmt.Errorf("It is not Player %d's turn", p.ID)
 	}
-	p.State = DONE
+	if p.State != INACTIVE {
+		p.State = DONE
+	}
 	if !g.NextPlayer() {
 		slog.Info("Starting dealer turn")
 		g.StartDealerTurn()
@@ -254,7 +261,7 @@ func (g *Game) ResolveBets() error {
 		player.Wallet += winAmt
 	}
 	g.reset()
-	return g.StartBetting()
+	return g.EndRound()
 }
 
 func (g *Game) reset() {
@@ -336,12 +343,7 @@ func (g *Game) ActivePlayers() []*Player {
 		}
 		if p.State != INACTIVE {
 			active = append(active, p)
-		} else {
-			p.State = INACTIVE
 		}
-	}
-	if len(active) < 1 {
-		slog.Error("No active players")
 	}
 	return active
 }
