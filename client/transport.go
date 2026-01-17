@@ -123,7 +123,7 @@ func (m *MockTransportMessageIO) FetchData() {
 	var tm []*protocol.TransportMessage
 	// eventually this will like read a file or generate some random messages that go through the flow of a blackjack game
 	// since I'm only currently working on the menu page / table selection... I don't need to send table data
-	tick := time.NewTicker(5 * time.Second)
+	tick := time.NewTicker(1 * time.Second)
 
 	for {
 		switch m.state {
@@ -178,6 +178,9 @@ func generateGameData() []*protocol.TransportMessage {
 			Hand:   protocol.HandDTO{Cards: generateMockCards(), Value: 18, State: "LIVE"},
 			Name:   randomNames[rand.IntN(len(randomNames))],
 		},
+		{},
+		{},
+		{},
 	}
 	gameState := protocol.GameDTO{Players: players, DealerHand: protocol.HandDTO{Cards: generateMockCards(), Value: 18, State: "LIVE"}}
 	dat, err := protocol.PackageMessage(gameState) // This will need to be changed. PackageMessage is hankering for a refactor

@@ -63,9 +63,13 @@ func PlayerToDTO(p *game.Player) PlayerDTO {
 
 func GameToDTO(g *game.Game) GameDTO {
 	players := []PlayerDTO{}
-	// TODO: Do we want to send only active players? or can we send empty player objects
-	for _, p := range g.ActivePlayers() {
-		players = append(players, PlayerToDTO(p))
+	for _, p := range g.Players {
+		if p != nil && p.IsActive() {
+			players = append(players, PlayerToDTO(p))
+		} else {
+			// Send empty spaces for table
+			players = append(players, PlayerDTO{})
+		}
 	}
 	return GameDTO{
 		DealerHand: DealerToDTO(g.State, g.DealerHand),

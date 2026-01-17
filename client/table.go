@@ -134,6 +134,9 @@ func (t *TuiTable) renderVerticalZone3() string {
 }
 
 func (p *TuiPlayer) renderPlayerZone() string {
+	if p.Name == "" { // we have an empty slot
+		return renderEmptyPlayer()
+	}
 	nameTag := p.Name
 	bet := p.Bet
 	wallet := p.Wallet
@@ -143,4 +146,9 @@ func (p *TuiPlayer) renderPlayerZone() string {
 	}
 	status := fmt.Sprintf("V:%s B:%d W:%d", valueStr, bet, wallet)
 	return lipgloss.Place(16, 5, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Top, nameTag, renderMultipleCards(p.Cards, 16, 6), status))
+}
+
+func renderEmptyPlayer() string {
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color(softForeground)).BorderStyle(lipgloss.RoundedBorder()).Width(16-2).Height(6-2).Align(lipgloss.Center, lipgloss.Center)
+	return lipgloss.Place(16, 5, lipgloss.Center, lipgloss.Center, style.Render("empty"))
 }

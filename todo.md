@@ -4,7 +4,7 @@
 
 - Make values paramaters with a config file at some point
 - generate id from websocket to make sure that it is sticky.
-- BUG: when a player leaves a game and there are no active players, the server crashes
+- BUG: player joining mid-round causes game to crash
 
 ## UI TODO
 
@@ -24,3 +24,4 @@
 ## Done... I think
 - table.go make sure that game isn't started already when start command is sent
 - update package message to return a transport message like the other package method does
+- BUG: when a player leaves a game and there are no active players, the server crashes
