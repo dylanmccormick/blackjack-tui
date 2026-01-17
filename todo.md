@@ -5,6 +5,7 @@
 - Make values paramaters with a config file at some point
 - generate id from websocket to make sure that it is sticky.
 - BUG: player joining mid-round causes game to crash
+- Player should be BOOTED when they run out of funds
 
 ## UI TODO
 
@@ -21,6 +22,7 @@
 - displaying messages from the game like "waiting for all players to finish betting"
 
 ## Done... I think
+
 - table.go make sure that game isn't started already when start command is sent
 - update package message to return a transport message like the other package method does
 - BUG: when a player leaves a game and there are no active players, the server crashes
