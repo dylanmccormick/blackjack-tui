@@ -1,6 +1,6 @@
 # Blackjack TUI
 
-[![asciicast](https://asciinema.org/a/fRYpCWTaFwvBILBs.svg)](https://asciinema.org/a/fRYpCWTaFwvBILBs)
+![demo](./demo.gif)
 
 ## Description
 
