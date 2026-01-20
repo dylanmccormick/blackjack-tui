@@ -8,7 +8,9 @@ This is an implementation of the game blackjack in a Terminal UI format. The app
 
 ## Motivation
 
-My goal in creating this project is to learn more about how to design software well. I'm learning that the key to good software is minimizing complexity. We do not want to be complexitymaxers here. I intend to get this reviewed by some people in a discord chat when I'm done and see what kind of improvements I could make on it. Really the goal is to become the best software engineer I can and learn to do things excellently. Also I think building projects like this will help hone my instinct on how software should be built and designed.
+Have you ever thought that people are making games too complicated? Why do I need JAVASCRIPT when I can just run things in the terminal? Why do I need a WEBSITE when I can just have a server? These are the questions I'm trying to answer by building blackjack TUI. The terminal-based blackjack game that prevents you from having to interact with javascript ever again. 
+
+My goal in creating this project is to learn more about how to design software well. I'm learning that the key to good software is minimizing complexity. I intend to get this reviewed by some people in a discord chat when I'm done and see what kind of improvements I could make on it. Really the goal is to become the best software engineer I can and learn to do things excellently. Also I think building projects like this will help hone my instinct on how software should be built and designed.
 
 ## Quick Start
 
@@ -25,6 +27,15 @@ To run the client in mock mode:
 `DEBUG=1 go run . -f=tui --mock`
 
 For now, you need to set the debug mode to true or the log statements will mess up your client
+
+
+## Usage
+
+### Flags:
+-f -- the format you want to run the application in. 
+    Available Options: "tui", "server"
+--mock -- run the TUI in mock mode to be able to see the changes you make without needing to connect to a server
+
 
 ## How to play
 
