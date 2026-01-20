@@ -1,5 +1,7 @@
 # Blackjack TUI
 
+[![asciicast](https://asciinema.org/a/fRYpCWTaFwvBILBs.svg)](https://asciinema.org/a/fRYpCWTaFwvBILBs)
+
 ## Description
 
 This is an implementation of the game blackjack in a Terminal UI format. The application has two parts, the server and the client. Eventually it will be finished so you can launch either with a CLI command and play blackjack over the internet with your friends. To start this project I used Claude to create a project spec which I could follow and implement to work on my programming chops. I have used Claude as well to try and think through problems, but all of the code in the project is grass-fed and hand-written by yours truly.
