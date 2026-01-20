@@ -89,6 +89,7 @@ func (g *Game) AddPlayer(p *Player) error {
 		if player == nil {
 			// Fill in empty slot
 			g.Players[i] = p
+			p.State = INACTIVE // this will reset when the player bets
 			return nil
 		}
 	}

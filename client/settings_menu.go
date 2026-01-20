@@ -2,10 +2,19 @@ package client
 
 import tea "github.com/charmbracelet/bubbletea"
 
-type SettingsMenuModel struct{}
+type SettingsMenuModel struct{
+	Commands map[string]string
+}
 
 func NewSettingsMenu() *SettingsMenuModel {
-	return &SettingsMenuModel{}
+	return &SettingsMenuModel{
+		Commands: map[string]string{
+			"j":     "down",
+			"k":     "up",
+			"enter": "select",
+			"esc":   "back",
+		},
+	}
 }
 
 func (sm *SettingsMenuModel) Init() tea.Cmd{

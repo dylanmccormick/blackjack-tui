@@ -3,8 +3,10 @@ package client
 import (
 	"bytes"
 	"log"
+	"log/slog"
 	"math/rand/v2"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
@@ -15,6 +17,7 @@ func NewMockTransporter() *MockTransportMessageIO {
 	return &MockTransportMessageIO{
 		out:        make(chan *protocol.TransportMessage),
 		disconnect: make(chan struct{}),
+		data:       make(chan *protocol.TransportMessage),
 	}
 }
 
@@ -22,21 +25,30 @@ func NewWsTransportMessageIO() *WsTransportMessageIO {
 	return &WsTransportMessageIO{
 		out:        make(chan *protocol.TransportMessage),
 		disconnect: make(chan struct{}),
+		data:       make(chan *protocol.TransportMessage),
 	}
 }
 
 type TransportMessageIO interface {
 	GetChan() chan *protocol.TransportMessage
-	Connect() error                            // I think later we'll add an address you can connect to as a param
-	Stop()                                     // Stops fetch data goroutine and disconnects from server.
-	SendData(*protocol.TransportMessage) error // Sends JSON data across the wire to the server
-	FetchData()                                // Runs goroutine to pull data from the server connection
+	Connect() error // I think later we'll add an address you can connect to as a param
+	Stop()          // Stops fetch data goroutine and disconnects from server.
+	SendData()      // Reads from data chan sends JSON data across the wire to the server
+	FetchData()     // Runs goroutine to pull data from the server connection
+	QueueData(*protocol.TransportMessage)
 }
 
 type WsTransportMessageIO struct {
+	mut        sync.Mutex
 	out        chan *protocol.TransportMessage
 	conn       *websocket.Conn
+	data       chan *protocol.TransportMessage
 	disconnect chan struct{}
+}
+
+// this seems like a bad thing to do, but I'm not sure how else to interact with an interface
+func (ws *WsTransportMessageIO) QueueData(data *protocol.TransportMessage) {
+	ws.data <- data
 }
 
 func (ws *WsTransportMessageIO) GetChan() chan *protocol.TransportMessage {
@@ -57,15 +69,19 @@ func (ws *WsTransportMessageIO) Connect() error {
 
 	ws.conn = c
 	go ws.FetchData() // Will this die when I exit the function? I don't think so?
+	go ws.SendData()  // Will this die when I exit the function? I don't think so?
 	return nil
 }
 
-func (ws *WsTransportMessageIO) SendData(tm *protocol.TransportMessage) error {
-	err := ws.conn.WriteJSON(tm)
-	if err != nil {
-		return err
+func (ws *WsTransportMessageIO) SendData() {
+	for msg := range ws.data {
+		ws.mut.Lock()
+		err := ws.conn.WriteJSON(msg)
+		if err != nil {
+			slog.Error("error writing to connection", "error", err)
+		}
+		ws.mut.Unlock()
 	}
-	return nil
 }
 
 func (ws *WsTransportMessageIO) FetchData() {
@@ -99,23 +115,27 @@ const (
 	table
 )
 
+func (m *MockTransportMessageIO) QueueData(data *protocol.TransportMessage) {
+	m.data <- data
+}
+
 type MockTransportMessageIO struct {
 	out        chan *protocol.TransportMessage
 	conn       *websocket.Conn
 	disconnect chan struct{}
 	state      mockState
+	data       chan *protocol.TransportMessage
 }
 
-func (m *MockTransportMessageIO) SendData(tm *protocol.TransportMessage) error {
-	log.Printf("Current state: %#v", m.state)
-	switch tm.Type {
-	case protocol.MsgJoinTable:
-		log.Println("Changgin state")
-		m.state = table
-	case protocol.MsgLeaveTable:
-		m.state = menu
+func (m *MockTransportMessageIO) SendData() {
+	for data := range m.data {
+		switch data.Type {
+		case protocol.MsgJoinTable:
+			m.state = table
+		case protocol.MsgLeaveTable:
+			m.state = menu
+		}
 	}
-	return nil
 }
 
 func (m *MockTransportMessageIO) FetchData() {
@@ -210,5 +230,6 @@ func (m *MockTransportMessageIO) Stop() {
 func (m *MockTransportMessageIO) Connect() error {
 	log.Println("got connect message")
 	go m.FetchData()
+	go m.SendData()
 	return nil
 }

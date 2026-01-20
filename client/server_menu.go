@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,6 +13,8 @@ type ServerMenuModel struct {
 	textInput       textinput.Model
 	savedServers    []string
 	currServerIndex int
+	Commands        map[string]string
+	commandSet      bool
 }
 
 func NewServerMenu() *ServerMenuModel {
@@ -20,6 +23,13 @@ func NewServerMenu() *ServerMenuModel {
 	serverText.Width = 40
 	return &ServerMenuModel{
 		textInput: serverText,
+		Commands: map[string]string{
+			"j":     "down",
+			"k":     "up",
+			"enter": "select",
+			"esc":   "back",
+			"n":     "new server",
+		},
 	}
 }
 
@@ -44,6 +54,10 @@ func (sm *ServerMenuModel) View() string {
 func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
+	if !sm.commandSet {
+		cmds = append(cmds, AddCommands(sm.Commands))
+		sm.commandSet = true
+	}
 	switch msg := msg.(type) {
 	case TextFocusMsg:
 		sm.textInput.Focus()
@@ -54,8 +68,21 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				sm.textInput.Blur()
 			} else {
 				cmds = append(cmds, ChangeMenuPageCmd(mainMenu))
+				sm.commandSet = false
 			}
 		case tea.KeyEnter:
+			var server string
+			if sm.textInput.Focused() {
+				server := sm.textInput.Value()
+				sm.savedServers = append(sm.savedServers, server)
+				cmds = append(cmds, AddCommands(sm.Commands))
+			} else {
+				if len(sm.savedServers) > 0 {
+					server = sm.savedServers[sm.currServerIndex]
+					// TODO: join a saved server
+					log.Printf("Attempting to join server: %s", server)
+				}
+			}
 			// This will be to join a server
 			cmd = nil
 			cmds = append(cmds, cmd)
@@ -64,6 +91,7 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "n":
 				cmd = TextFocusCmd()
 				cmds = append(cmds, cmd)
+				cmds = append(cmds, AddCommands(map[string]string{"enter": "create server address", "esc": "cancel"}))
 			case "j":
 				if sm.currServerIndex+1 < len(sm.savedServers) {
 					sm.currServerIndex += 1

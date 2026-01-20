@@ -140,6 +140,9 @@ func (t *Table) handleCommand(msg inboundMessage) {
 			return
 		}
 		t.betTimer.Reset(ACTION_TIMEOUT)
+	case protocol.MsgGetState:
+		slog.Info("Client requested game state")
+		t.broadcastGameState()
 	case protocol.MsgPlaceBet:
 		slog.Info("Betting")
 		value := protocol.ValueMessage{}

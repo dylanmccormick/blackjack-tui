@@ -11,11 +11,12 @@ import (
 )
 
 type TuiTable struct {
-	Players  []TuiPlayer
-	Height   int
-	Width    int
-	Commands map[string]string
-	betInput textinput.Model
+	Players    []TuiPlayer
+	Height     int
+	Width      int
+	Commands   map[string]string
+	betInput   textinput.Model
+	commandSet bool
 }
 
 var GAME_COMMANDS = map[string]string{
@@ -36,6 +37,7 @@ func NewTable() *TuiTable {
 			"b": "place bet",
 			"h": "hit",
 			"s": "stand",
+			"L": "leave server",
 		},
 		betInput: betText,
 	}
@@ -79,6 +81,10 @@ func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
 func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
+	if !t.commandSet {
+		cmds = append(cmds, AddCommands(t.Commands))
+		t.commandSet = true
+	}
 	switch msg := msg.(type) {
 	case TextFocusMsg:
 		t.betInput.Focus()
@@ -104,8 +110,15 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgHit, "")))
 			case "s":
 				cmds = append(cmds, SendData(protocol.PackageClientMessage(protocol.MsgStand, "")))
+			case "u":
+				cmd = SendData(protocol.PackageClientMessage(protocol.MsgGetState, ""))
+				cmds = append(cmds, cmd)
+			case "L":
+				cmd = SendData(protocol.PackageClientMessage(protocol.MsgLeaveTable, ""))
+				cmds = append(cmds, cmd)
+				cmds = append(cmds, ChangeRootPage(menuPage))
+				t.commandSet = false
 			}
-			cmds = append(cmds, cmd)
 		}
 	}
 	if t.betInput.Focused() {

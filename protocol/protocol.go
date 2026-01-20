@@ -25,6 +25,7 @@ const (
 	MsgCreateTable = "create_table"
 	MsgStartGame   = "start_game"
 	MsgDealCards   = "deal_cards"
+	MsgGetState    = "get_state"
 )
 
 type ValueMessage struct {

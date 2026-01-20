@@ -20,6 +20,7 @@ type (
 		ServerMenu   tea.Model
 		TableMenu    tea.Model
 		SettingsMenu tea.Model
+		CommandsSet  bool
 	}
 )
 
@@ -30,6 +31,11 @@ const (
 	settingsMenu
 )
 
+var dialogueCommands = map[string]string{
+	"enter": "enter",
+	"esc":   "cancel",
+}
+
 func NewMenuModel() *MenuModel {
 	return &MenuModel{
 		currMenuIndex: 0,
@@ -38,6 +44,7 @@ func NewMenuModel() *MenuModel {
 		ServerMenu:    NewServerMenu(),
 		TableMenu:     NewTableMenu(),
 		SettingsMenu:  NewSettingsMenu(),
+		CommandsSet:   false,
 	}
 }
 
@@ -75,6 +82,7 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ChangeMenuPage:
 		log.Printf("Changing menu page: %#v", msg.page)
 		mm.page = msg.page
+		mm.CommandsSet = false
 	}
 	switch mm.page {
 	case mainMenu:

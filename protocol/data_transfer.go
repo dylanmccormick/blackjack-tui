@@ -64,7 +64,7 @@ func PlayerToDTO(p *game.Player) PlayerDTO {
 func GameToDTO(g *game.Game) GameDTO {
 	players := []PlayerDTO{}
 	for _, p := range g.Players {
-		if p != nil && p.IsActive() {
+		if p != nil {
 			players = append(players, PlayerToDTO(p))
 		} else {
 			// Send empty spaces for table

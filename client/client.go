@@ -61,10 +61,7 @@ type errMsg struct {
 
 func (rm *RootModel) Send(data *protocol.TransportMessage) tea.Cmd {
 	return func() tea.Msg {
-		err := rm.transporter.SendData(data)
-		if err != nil {
-			return errMsg{err}
-		}
+		rm.transporter.QueueData(data)
 		return nil
 	}
 }
