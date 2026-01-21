@@ -325,6 +325,9 @@ func (g *Game) PlaceBet(p *Player, bet int) error {
 	if err != nil {
 		return err
 	}
+	if p.State == BETS_MADE {
+		return fmt.Errorf("Bet already made. You can't make another bet")
+	}
 	g.Players[i].Bet = bet
 	g.Players[i].Wallet -= bet
 	g.Players[i].State = BETS_MADE
