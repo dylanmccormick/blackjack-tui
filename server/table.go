@@ -78,25 +78,9 @@ func (t *Table) run() {
 			slog.Info("Killing Table")
 			return
 		case client := <-t.registerChan:
-			slog.Info("attempting to register client", "client", client.id)
-			playerReconnecting := t.game.GetPlayer(client.id) != nil
-			if !playerReconnecting {
-				p := game.NewPlayer(client.id)
-				p.Name = "lugubrious_bagel"
-				t.game.AddPlayer(p)
-			}
-			t.clients[client] = true
-			if t.game.State == game.WAIT_FOR_START {
-				t.game.State = game.WAITING_FOR_BETS
-			}
+			t.RegisterClient(client)
 		case client := <-t.unregisterChan:
-			// Unintentionally Left Table (connection issue or pkill or whatever)
-			slog.Info("attempting to unregister client", "client", client.id)
-			t.DisconnectPlayer(client, false)
-			if _, ok := t.clients[client]; ok {
-				delete(t.clients, client)
-				close(client.send)
-			}
+			t.UnregisterClient(client)
 		case message := <-t.inbound:
 			slog.Info("Received message", "message", message.data)
 			t.handleCommand(message)
@@ -242,5 +226,28 @@ func (t *Table) CreateDTO() protocol.TableDTO {
 		Id:             t.id,
 		Capacity:       t.maxPlayers,
 		CurrentPlayers: len(t.clients),
+	}
+}
+
+func (t *Table) RegisterClient(client *Client) {
+	slog.Info("attempting to register client", "client", client.id)
+	playerReconnecting := t.game.GetPlayer(client.id) != nil
+	if !playerReconnecting {
+		p := game.NewPlayer(client.id)
+		p.Name = "lugubrious_bagel"
+		t.game.AddPlayer(p)
+	}
+	t.clients[client] = true
+	if t.game.State == game.WAIT_FOR_START {
+		t.game.State = game.WAITING_FOR_BETS
+	}
+}
+
+func (t *Table) UnregisterClient(client *Client) {
+	slog.Info("attempting to unregister client", "client", client.id)
+	t.DisconnectPlayer(client, false)
+	if _, ok := t.clients[client]; ok {
+		delete(t.clients, client)
+		close(client.send)
 	}
 }

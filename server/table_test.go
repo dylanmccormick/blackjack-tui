@@ -2,11 +2,13 @@ package server
 
 import (
 	"testing"
-	"time"
+
+	"github.com/dylanmccormick/blackjack-tui/protocol"
+	"github.com/google/uuid"
 )
 
 func TestCreateTable(t *testing.T) {
-	table := newTable()
+	table := newTable("test_table")
 
 	if len(table.clients) != 0 {
 		t.Fatalf("No clients map created")
@@ -14,25 +16,26 @@ func TestCreateTable(t *testing.T) {
 }
 
 func TestTableClientInteractions(t *testing.T) {
-	table := newTable()
+	table := newTable("test_table")
 
-	go table.run()
+	id, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID. err=%#v", err)
+	}
 	client := &Client{
-		table: table,
-		send:  make(chan []byte, 10),
-		id:    1,
+		send: make(chan *protocol.TransportMessage, 10),
+		id:   id,
 	}
 
-	table.register <- client
+	table.RegisterClient(client)
+
 	if table.clients[client] != true {
 		t.Fatalf("Client not registered properly.")
 	}
 
-	table.unregister <- client
-	time.Sleep(1 * time.Second)
+	table.UnregisterClient(client)
 	if _, ok := table.clients[client]; ok {
 		t.Fatalf("Client not unregistered properly.")
 	}
-
-	close(table.stopChan)
 }
+

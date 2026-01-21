@@ -64,7 +64,8 @@ func RunServer() {
 	})
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
-		panic(err)
+		slog.Error("Error serving http", "error", err)
+		os.Exit(1)
 	}
 }
 
@@ -82,6 +83,7 @@ func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("An error occurred upgrading the http connection", "error", err)
+		// TODO: this should send some sort of error back to the client
 		panic(err)
 	}
 	client := &Client{

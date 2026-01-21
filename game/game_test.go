@@ -1,8 +1,9 @@
 package game
 
-
 import (
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 func TestDeckHasCorrectCardCount(t *testing.T) {
@@ -149,17 +150,23 @@ func TestHandValue(t *testing.T) {
 }
 
 func TestAddPlayer(t *testing.T) {
+	var err error
 	game := NewGame()
-	p1 := &Player{ID: 1}
-	p2 := &Player{ID: 2}
-	p3 := &Player{ID: 3}
-	p4 := &Player{ID: 4}
-	p5 := &Player{ID: 5}
-	p6 := &Player{ID: 6}
+
+	p1 := &Player{}
+	p2 := &Player{}
+	p3 := &Player{}
+	p4 := &Player{}
+	p5 := &Player{}
+	p6 := &Player{}
 	pList := []*Player{p1, p2, p3, p4, p5, p6}
 	for i := range 5 {
 		p := pList[i]
-		err := game.AddPlayer(p)
+		p.ID, err = uuid.NewUUID()
+		if err != nil {
+			t.Fatalf("Unable to create UUID err:%#v", err)
+		}
+		err = game.AddPlayer(p)
 		if err != nil {
 			t.Fatalf("Expected to add player to game. Got error=%#v", err)
 		}
@@ -167,19 +174,31 @@ func TestAddPlayer(t *testing.T) {
 			t.Fatalf("Expected player %d to be in index %d. got=%#v", p.ID, i, game.Players[0])
 		}
 	}
-	err := game.AddPlayer(pList[5])
+	err = game.AddPlayer(pList[5])
 	if err == nil {
 		t.Fatalf("Expected to get an error adding player 6. got=%#v", err)
 	}
 }
 
 func TestPlaceBet(t *testing.T) {
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+
+	u2, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+
 	game := NewGame()
-	p1 := &Player{ID: 1, Wallet: 10}
-	p2 := &Player{ID: 2, Wallet: 1}
+	p1 := &Player{ID: u1, Wallet: 10}
+	p2 := &Player{ID: u2, Wallet: 1}
 	game.AddPlayer(p1)
 	game.AddPlayer(p2)
-	err := game.PlaceBet(p1, 5)
+	err = game.StartGame()
+	genericErrHelper(t, err)
+	err = game.PlaceBet(p1, 5)
 	if err != nil {
 		t.Fatalf("No error expected for placing bet. got=%#v", err)
 	}
@@ -194,13 +213,29 @@ func TestPlaceBet(t *testing.T) {
 }
 
 func TestNextPlayer(t *testing.T) {
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+	u2, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+	u3, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
 	game := NewGame()
-	p1 := &Player{ID: 1, Wallet: 10, State: BETS_MADE}
-	p2 := &Player{ID: 2, Wallet: 1, State: BETS_MADE}
-	p3 := &Player{ID: 3, Wallet: 1, State: BETS_MADE}
+	p1 := &Player{ID: u1, Wallet: 10, State: BETS_MADE}
+	p2 := &Player{ID: u2, Wallet: 100, State: BETS_MADE}
+	p3 := &Player{ID: u3, Wallet: 100, State: BETS_MADE}
 	game.AddPlayer(p1)
 	game.AddPlayer(p2)
 	game.AddPlayer(p3)
+	p1.State = BETS_MADE
+	p2.State = BETS_MADE
+	p3.State = BETS_MADE
+	genericErrHelper(t, err)
 	game.State = PLAYER_TURN
 	res := game.NextPlayer()
 	if !res {
@@ -217,9 +252,15 @@ func TestNextPlayer(t *testing.T) {
 }
 
 func TestGameFlow(t *testing.T) {
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
 	game := NewGame()
-	p1 := &Player{ID: 1, Wallet: 10, State: BETTING}
-	err := game.AddPlayer(p1)
+	p1 := &Player{ID: u1, Wallet: 10, State: BETTING}
+	err = game.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = game.StartGame()
 	genericErrHelper(t, err)
 	err = game.PlaceBet(p1, 5)
 	genericErrHelper(t, err)
@@ -254,9 +295,15 @@ func genericErrHelper(t *testing.T, err error) {
 }
 
 func TestGameFlowErrors(t *testing.T) {
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
 	game := NewGame()
-	p1 := &Player{ID: 1, Wallet: 10, State: BETTING}
-	err := game.AddPlayer(p1)
+	p1 := &Player{ID: u1, Wallet: 10, State: BETTING}
+	err = game.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = game.StartGame()
 	genericErrHelper(t, err)
 	err = game.PlaceBet(p1, 5)
 	genericErrHelper(t, err)
@@ -284,8 +331,12 @@ func TestCalculatePayout(t *testing.T) {
 		{&Hand{Cards: []Card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []Card{{suit, 10}, {suit, 10}}}, 10},
 	}
 	g := NewGame()
-	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
-	err := g.AddPlayer(p1)
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+	p1 := &Player{ID: u1, Wallet: 100, State: BETTING, Bet: 10}
+	err = g.AddPlayer(p1)
 	genericErrHelper(t, err)
 	for _, tt := range tests {
 		g.DealerHand = tt.DealerHand
@@ -310,8 +361,16 @@ func TestHitUntilBust(t *testing.T) {
 		},
 		g.Deck.Cards...,
 	)
-	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
-	err := g.AddPlayer(p1)
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+	p1 := &Player{ID: u1, Wallet: 100, State: BETTING, Bet: 10}
+	err = g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartGame()
+	genericErrHelper(t, err)
+	err = g.PlaceBet(p1, 5)
 	genericErrHelper(t, err)
 	err = g.StartRound()
 	genericErrHelper(t, err)
@@ -347,8 +406,16 @@ func TestHitUntilStay(t *testing.T) {
 		},
 		g.Deck.Cards...,
 	)
-	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
-	err := g.AddPlayer(p1)
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+	p1 := &Player{ID: u1, Wallet: 100, State: BETTING, Bet: 10}
+	err = g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartGame()
+	genericErrHelper(t, err)
+	err = g.PlaceBet(p1, 5)
 	genericErrHelper(t, err)
 	err = g.StartRound()
 	genericErrHelper(t, err)
@@ -388,8 +455,16 @@ func TestDealerLogicHitSoft17(t *testing.T) {
 		},
 		g.Deck.Cards...,
 	)
-	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
-	err := g.AddPlayer(p1)
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+	p1 := &Player{ID: u1, Wallet: 100, State: BETTING, Bet: 10}
+	err = g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartGame()
+	genericErrHelper(t, err)
+	err = g.PlaceBet(p1, 5)
 	genericErrHelper(t, err)
 	err = g.StartRound()
 	genericErrHelper(t, err)
@@ -418,8 +493,16 @@ func TestDealerLogicStandSoft17(t *testing.T) {
 		},
 		g.Deck.Cards...,
 	)
-	p1 := &Player{ID: 1, Wallet: 100, State: BETTING, Bet: 10}
-	err := g.AddPlayer(p1)
+	u1, err := uuid.NewUUID()
+	if err != nil {
+		t.Fatalf("Unable to create UUID err:%#v", err)
+	}
+	p1 := &Player{ID: u1, Wallet: 100}
+	err = g.AddPlayer(p1)
+	genericErrHelper(t, err)
+	err = g.StartGame()
+	genericErrHelper(t, err)
+	err = g.PlaceBet(p1, 5)
 	genericErrHelper(t, err)
 	err = g.StartRound()
 	genericErrHelper(t, err)
