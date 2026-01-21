@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
+	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
@@ -37,18 +38,16 @@ func ReceiveMessage(sub <-chan *protocol.TransportMessage) tea.Cmd {
 
 func ParseTransportMessage(msg []byte) []*protocol.TransportMessage {
 	// Parses a transport message. Returns the type and the packaged message
-	log.Println("Parsing data from transport message")
 	messages := []*protocol.TransportMessage{}
 	decoder := json.NewDecoder(bytes.NewReader(msg))
 	for decoder.More() {
 		var tm protocol.TransportMessage
 		err := decoder.Decode(&tm)
 		if err != nil {
-			log.Println(err)
-			panic(err)
+			slog.Error("Unable to decode JSON", "error", err)
+			return []*protocol.TransportMessage{}
 		}
 		messages = append(messages, &tm)
 	}
-	log.Println("returning messages", messages)
 	return messages
 }

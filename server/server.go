@@ -55,12 +55,10 @@ func RunServer() {
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
 	slog.SetDefault(logger)
-	table := newTable("placeholder")
 	go lobby.run()
-	go table.run()
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		slog.Info("Received connection")
-		serveWs(table, w, r)
+		serveWs(w, r)
 	})
 	err := http.ListenAndServe(":8080", nil)
 	if err != nil {
@@ -78,13 +76,13 @@ func generateId(c *websocket.Conn) uuid.UUID {
 	return uuid
 }
 
-func serveWs(table *Table, w http.ResponseWriter, r *http.Request) {
+func serveWs(w http.ResponseWriter, r *http.Request) {
 	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("An error occurred upgrading the http connection", "error", err)
 		// TODO: this should send some sort of error back to the client
-		panic(err)
+		return
 	}
 	client := &Client{
 		conn:    conn,

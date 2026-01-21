@@ -92,13 +92,13 @@ func (ws *WsTransportMessageIO) FetchData() {
 			close(ws.out)
 			ws.conn.Close()
 		default:
+			// Not using ReadJson because there are potentially multiple transport messages
 			_, data, err := ws.conn.ReadMessage()
 			if err != nil {
-				panic(err)
+				slog.Error("Unable to turn data into json", "error", err, "data", string(data))
 			}
 			data = bytes.TrimSpace(bytes.ReplaceAll(data, []byte("\n"), []byte(" ")))
 
-			log.Printf("adding message to chan: %s", string(data))
 			msg := ParseTransportMessage(data)
 			for _, m := range msg {
 				log.Printf("adding message to chan, %#v", m)
@@ -203,9 +203,10 @@ func generateGameData() []*protocol.TransportMessage {
 		{},
 	}
 	gameState := protocol.GameDTO{Players: players, DealerHand: protocol.HandDTO{Cards: generateMockCards(), Value: 18, State: "LIVE"}}
-	dat, err := protocol.PackageMessage(gameState) // This will need to be changed. PackageMessage is hankering for a refactor
+	dat, err := protocol.PackageMessage(gameState)
 	if err != nil {
-		panic(err)
+		slog.Error("Unable to generate game data. gameState encoding error:", "error", err)
+		return nil
 	}
 	return []*protocol.TransportMessage{dat}
 }
@@ -214,7 +215,8 @@ func generateTableData() []*protocol.TransportMessage {
 	tblList := []protocol.TableDTO{{Id: "test1", Capacity: 5, CurrentPlayers: 1}, {Id: "test3", Capacity: 5, CurrentPlayers: 1}, {Id: "test2", Capacity: 5, CurrentPlayers: 1}}
 	dat, err := protocol.PackageMessage(tblList) // This will need to be changed. PackageMessage is hankering for a refactor
 	if err != nil {
-		panic(err)
+		slog.Error("Unable to generate table data. tblList encoding error:", "error", err)
+		return nil
 	}
 	return []*protocol.TransportMessage{dat}
 }
