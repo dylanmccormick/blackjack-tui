@@ -93,3 +93,7 @@ func clientHelper(n int) []*Client {
 	}
 	return clients
 }
+
+func TestFail(t *testing.T) {
+	t.Fatalf("INTENTIONAL FAIL")
+}
