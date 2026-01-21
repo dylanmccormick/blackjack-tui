@@ -16,8 +16,7 @@ const (
 )
 
 type inboundMessage struct {
-	data *protocol.TransportMessage
-	// data   []byte // TODO: This should be transport message type
+	data   *protocol.TransportMessage
 	client *Client
 }
 
@@ -71,11 +70,21 @@ func (t *Table) sendMessage(msg inboundMessage) {
 	t.inbound <- msg
 }
 
+func (t *Table) cleanUp() {
+	slog.Info("Cleaning up table", "table_name", t.id)
+	close(t.stopChan)
+	close(t.registerChan)
+	close(t.unregisterChan)
+	close(t.inbound)
+	close(t.outbound)
+}
+
 func (t *Table) run() {
 	for {
 		select {
 		case <-t.stopChan:
 			slog.Info("Killing Table")
+			t.cleanUp()
 			return
 		case client := <-t.registerChan:
 			t.RegisterClient(client)
@@ -105,12 +114,10 @@ func (t *Table) run() {
 		case <-t.tableTimer.C:
 			slog.Info("KILLING TABLE")
 			lobby.deleteTable(t.id)
-			// TODO: figure out how to kill the table
+			t.stopChan <- struct{}{}
 		}
 	}
 }
-
-// the read pump should be handling this
 
 func (t *Table) handleCommand(msg inboundMessage) {
 	switch msg.data.Type {
@@ -164,7 +171,9 @@ func (t *Table) DisconnectPlayer(c *Client, intentional bool) {
 func (t *Table) cmdLeaveTable(c *Client) {
 	t.DisconnectPlayer(c, true)
 	lobby.register(c)
+	c.mu.Lock()
 	c.manager = lobby
+	c.mu.Unlock()
 	delete(t.clients, c)
 }
 

@@ -40,16 +40,18 @@ func (l *Lobby) run() {
 			slog.Info("Closing lobby")
 			return
 		case client := <-l.registerChan:
-			l.clients[client] = true
+			l.RegisterClient(client)
 		case client := <-l.unregisterChan:
-			if _, ok := l.clients[client]; ok {
-				delete(l.clients, client)
-				close(client.send)
-			}
+			l.UnregisterClient(client)
 		case msg := <-l.inbound:
 			l.handleCommand(msg)
 		}
 	}
+}
+
+func (l *Lobby) UnregisterClient(client *Client) {
+	delete(l.clients, client)
+	close(client.send)
 }
 
 func getValueFromRawValueMessage(raw json.RawMessage) (string, error) {
@@ -83,6 +85,10 @@ func (l *Lobby) handleCommand(msg inboundMessage) {
 		slog.Info("Listing Tables")
 		l.listTables(msg.client)
 	}
+}
+
+func (l *Lobby) RegisterClient(client *Client) {
+	l.clients[client] = true
 }
 
 func (l *Lobby) register(c *Client) {
@@ -125,7 +131,9 @@ func (l *Lobby) deleteTable(name string) {
 func (l *Lobby) joinTable(name string, c *Client) {
 	if t, ok := l.tables[name]; ok {
 		t.register(c)
+		c.mu.Lock()
 		c.manager = t
+		c.mu.Unlock()
 		delete(l.clients, c)
 		return
 	}

@@ -98,7 +98,9 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 
 func (c *Client) readPump() {
 	defer func() {
+		c.mu.Lock()
 		c.manager.unregister(c)
+		c.mu.Unlock()
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -112,8 +114,10 @@ func (c *Client) readPump() {
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
 		uMsg, err := unpackMessage(message)
+		c.mu.Lock()
 		slog.Info("writing message to manager", "manager", c.manager.Id())
 		c.manager.sendMessage(inboundMessage{uMsg, c})
+		c.mu.Unlock()
 	}
 }
 

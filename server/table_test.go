@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
@@ -36,6 +37,26 @@ func TestTableClientInteractions(t *testing.T) {
 	table.UnregisterClient(client)
 	if _, ok := table.clients[client]; ok {
 		t.Fatalf("Client not unregistered properly.")
+	}
+}
+
+func TestAutoProgress(t *testing.T) {
+	tab := newTable("test_table")
+	client := clientHelper(1)[0]
+	tab.RegisterClient(client)
+	p := tab.game.GetPlayer(client.id)
+	tab.game.StartGame()
+	tab.game.PlaceBet(p, 5)
+	tab.autoProgress()
+	tab.game.Stay(p)
+	tab.autoProgress()
+	count := 0
+	close(client.send)
+	for msg := range client.send {
+		var msgData protocol.GameDTO
+		json.Unmarshal(msg.Data, &msgData)
+		count += 1
+		t.Logf("count: %d, msg: %#v\n", count, msgData)
 	}
 }
 
