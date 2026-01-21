@@ -1,6 +1,6 @@
 # Blackjack TUI
 
-![Tests](https://github.com/YOUR_USERNAME/blackjack-tui/actions/workflows/test.yml/badge.svg)
+![Tests](https://github.com/dylanmccormick/blackjack-tui/actions/workflows/test.yml/badge.svg)
 
 ![demo](./demo.gif)
 
