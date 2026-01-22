@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"testing"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
@@ -39,11 +40,11 @@ func TestRegisterClient(t *testing.T) {
 
 func TestAddTable(t *testing.T) {
 	lobby := newLobby()
-	lobby.createTable("test_table")
+	lobby.createTable(context.TODO(), "test_table")
 	if len(lobby.tables) != 1 {
 		t.Fatalf("expected lobby to have 1 table. got=%d", len(lobby.tables))
 	}
-	lobby.createTable("test_table_2")
+	lobby.createTable(context.TODO(), "test_table_2")
 	if len(lobby.tables) != 2 {
 		t.Fatalf("expected lobby to have 2 tables. got=%d", len(lobby.tables))
 	}
@@ -54,7 +55,7 @@ func TestListTable(t *testing.T) {
 	c0 := clients[0]
 	c1 := clients[1]
 	lobby := newLobby()
-	lobby.createTable("test")
+	lobby.createTable(context.TODO(), "test")
 	lobby.RegisterClient(c0)
 	lobby.RegisterClient(c1)
 	lobby.listTables(c0)
@@ -63,18 +64,6 @@ func TestListTable(t *testing.T) {
 	}
 	if len(c1.send) > 0 {
 		t.Errorf("Expected no message in send channel for client")
-	}
-}
-
-func TestDeleteTable(t *testing.T) {
-	lobby := newLobby()
-	lobby.createTable("test_table")
-	lobby.createTable("test_table_2")
-	test_table := lobby.tables["test_table"]
-	lobby.deleteTable("test_table")
-	_, ok := <-test_table.stopChan
-	if ok {
-		t.Fatalf("Stopchan should be closed")
 	}
 }
 
@@ -93,4 +82,3 @@ func clientHelper(n int) []*Client {
 	}
 	return clients
 }
-

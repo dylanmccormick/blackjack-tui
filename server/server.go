@@ -139,7 +139,7 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.log.Error("error: %v", err)
+				c.log.Error("error with websocket", "error", err)
 			}
 			break
 		}

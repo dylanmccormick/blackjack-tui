@@ -9,7 +9,8 @@ import (
 )
 
 func TestCreateTable(t *testing.T) {
-	table := newTable("test_table")
+	lobby := newLobby()
+	table := newTable("test_table", lobby)
 
 	if len(table.clients) != 0 {
 		t.Fatalf("No clients map created")
@@ -17,7 +18,8 @@ func TestCreateTable(t *testing.T) {
 }
 
 func TestTableClientInteractions(t *testing.T) {
-	table := newTable("test_table")
+	lobby := newLobby()
+	table := newTable("test_table", lobby)
 
 	id, err := uuid.NewUUID()
 	if err != nil {
@@ -41,7 +43,8 @@ func TestTableClientInteractions(t *testing.T) {
 }
 
 func TestAutoProgress(t *testing.T) {
-	tab := newTable("test_table")
+	lobby := newLobby()
+	tab := newTable("test_table", lobby)
 	client := clientHelper(1)[0]
 	tab.RegisterClient(client)
 	p := tab.game.GetPlayer(client.id)
@@ -59,4 +62,3 @@ func TestAutoProgress(t *testing.T) {
 		t.Logf("count: %d, msg: %#v\n", count, msgData)
 	}
 }
-
