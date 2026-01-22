@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"strconv"
@@ -26,30 +27,35 @@ type Table struct {
 	unregisterChan chan *Client
 	inbound        chan inboundMessage
 	outbound       chan []byte
-	stopChan       chan struct{}
 	id             string
+	cancel         context.CancelFunc
+	lobby          *Lobby
 
 	maxPlayers  int
 	game        *game.Game
 	betTimer    *time.Timer
 	actionTimer *time.Timer
 	tableTimer  *time.Timer
+
+	log *slog.Logger
 }
 
-func newTable(name string) *Table {
+func newTable(name string, lobby *Lobby) *Table {
 	t := &Table{
 		clients:        make(map[*Client]bool),
 		registerChan:   make(chan *Client),
 		unregisterChan: make(chan *Client),
 		inbound:        make(chan inboundMessage),
 		outbound:       make(chan []byte), // TODO: This should also be transport message type
-		stopChan:       make(chan struct{}),
 		id:             name,
 		game:           game.NewGame(),
 		betTimer:       time.NewTimer(ACTION_TIMEOUT),
 		actionTimer:    time.NewTimer(ACTION_TIMEOUT),
 		tableTimer:     time.NewTimer(TABLE_TIMEOUT),
+		lobby:          lobby,
+		log:            slog.With("component", "table"),
 	}
+	t.log = t.log.With("table_id", t.id)
 	t.betTimer.Stop()
 	t.actionTimer.Stop()
 	t.tableTimer.Stop()
@@ -61,7 +67,6 @@ func (t *Table) register(c *Client) {
 }
 
 func (t *Table) unregister(c *Client) {
-	slog.Info("Unregistering client")
 	// this should always be "unintentional" because it comes from the readpump only
 	t.unregisterChan <- c
 }
@@ -71,19 +76,18 @@ func (t *Table) sendMessage(msg inboundMessage) {
 }
 
 func (t *Table) cleanUp() {
-	slog.Info("Cleaning up table", "table_name", t.id)
-	close(t.stopChan)
+	t.log.Info("Cleaning up table", "table_name", t.id)
 	close(t.registerChan)
 	close(t.unregisterChan)
 	close(t.inbound)
 	close(t.outbound)
 }
 
-func (t *Table) run() {
+func (t *Table) run(ctx context.Context) {
 	for {
 		select {
-		case <-t.stopChan:
-			slog.Info("Killing Table")
+		case <-ctx.Done():
+			t.log.Info("Killing Table")
 			t.cleanUp()
 			return
 		case client := <-t.registerChan:
@@ -91,17 +95,17 @@ func (t *Table) run() {
 		case client := <-t.unregisterChan:
 			t.UnregisterClient(client)
 		case message := <-t.inbound:
-			slog.Info("Received message", "message", message.data)
+			t.log.Debug("Received message", "message", message.data)
 			t.handleCommand(message)
 			t.autoProgress()
 		case <-t.betTimer.C:
-			slog.Info("BET TIMER EXPIRED")
+			t.log.Info("BET TIMER EXPIRED")
 			err := t.game.StartRound()
 			if err != nil {
 			}
 			t.autoProgress()
 		case <-t.actionTimer.C:
-			slog.Info("ACTION TIMER EXPIRED")
+			t.log.Info("ACTION TIMER EXPIRED")
 			if t.game.State != game.PLAYER_TURN {
 				// we don't need to reset anything if there are no actions to be waited for. i.e. the table is dead
 				continue
@@ -112,47 +116,52 @@ func (t *Table) run() {
 				t.autoProgress()
 			}
 		case <-t.tableTimer.C:
-			slog.Info("KILLING TABLE")
-			lobby.deleteTable(t.id)
-			t.stopChan <- struct{}{}
+			t.log.Info("KILLING TABLE")
+			t.sendDeleteMsg()
+			t.cleanUp()
+			return
 		}
 	}
+}
+
+func (t *Table) sendDeleteMsg() {
+	msg := protocol.PackageClientMessage(protocol.MsgDeleteTable, t.id)
+	t.lobby.inbound <- inboundMessage{msg, &Client{}}
 }
 
 func (t *Table) handleCommand(msg inboundMessage) {
 	switch msg.data.Type {
 	case protocol.MsgStartGame:
 		// TODO: add a check to make sure that the game hasn't already been started. You can spam this button to constantly reset the timer
-		slog.Info("Starting game")
+		t.log.Info("Starting game")
 		err := t.game.StartGame()
 		if err != nil {
-			slog.Warn("Attempted to start the game after it has already been started")
+			t.log.Warn("Attempted to start the game after it has already been started")
 			t.tableTimer.Reset(TABLE_TIMEOUT)
 			return
 		}
 		t.betTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgGetState:
-		slog.Info("Client requested game state")
+		t.log.Debug("Client requested game state")
 		t.broadcastGameState()
 	case protocol.MsgPlaceBet:
-		slog.Info("Betting")
 		value := protocol.ValueMessage{}
 		err := json.Unmarshal(msg.data.Data, &value)
 		if err != nil {
-			slog.Error("Got bad data from command", "command", msg.data)
+			t.log.Error("Got bad data from command", "command", msg.data)
 		}
 		bet, err := strconv.Atoi(value.Value)
 		t.game.PlaceBet(t.game.GetPlayer(msg.client.id), bet)
 	case protocol.MsgDealCards:
 		t.game.DealCards()
 	case protocol.MsgHit:
-		slog.Info("Hitting")
+		t.log.Debug("Hitting", "client", msg.client.id)
 		t.game.Hit(t.game.GetPlayer(msg.client.id))
 		t.actionTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgStand:
 		t.game.Stay(t.game.GetPlayer(msg.client.id))
 		t.actionTimer.Reset(ACTION_TIMEOUT)
-		slog.Info("Standing")
+		t.log.Debug("Standing", "client", msg.client.id)
 	case protocol.MsgLeaveTable:
 		// intentionally left table
 		// press ctrl+c or leave button
@@ -163,16 +172,16 @@ func (t *Table) handleCommand(msg inboundMessage) {
 func (t *Table) DisconnectPlayer(c *Client, intentional bool) {
 	player := t.game.GetPlayer(c.id)
 	if player != nil {
-		slog.Info("Disconnecting player", "id", player.ID, "intentional?", intentional)
+		t.log.Info("Disconnecting player", "id", player.ID, "intentional?", intentional)
 		player.MarkDisconnected(intentional)
 	}
 }
 
 func (t *Table) cmdLeaveTable(c *Client) {
 	t.DisconnectPlayer(c, true)
-	lobby.register(c)
+	t.lobby.register(c)
 	c.mu.Lock()
-	c.manager = lobby
+	c.manager = t.lobby
 	c.mu.Unlock()
 	delete(t.clients, c)
 }
@@ -182,7 +191,7 @@ OuterLoop:
 	for {
 		switch t.game.State {
 		case game.WAITING_FOR_BETS:
-			slog.Info("WAITING FOR MORE BETS")
+			t.log.Debug("WAITING FOR MORE BETS")
 			if t.game.AllPlayersBet() {
 				t.game.StartRound()
 			} else {
@@ -191,14 +200,14 @@ OuterLoop:
 				return
 			}
 		case game.DEALING:
-			slog.Info("DEALING CARDS")
+			t.log.Debug("dealing cards")
 			t.game.DealCards()
 			t.actionTimer.Reset(ACTION_TIMEOUT)
 		case game.DEALER_TURN:
-			slog.Info("PLAYING DEALER")
+			t.log.Debug("PLAYING DEALER")
 			t.game.PlayDealer()
 		case game.RESOLVING_BETS:
-			slog.Info("RESOLVING BETS")
+			t.log.Debug("RESOLVING BETS")
 			t.game.ResolveBets()
 			t.betTimer.Reset(ACTION_TIMEOUT)
 		default:
@@ -213,7 +222,7 @@ func (t *Table) broadcastGameState() {
 	gameData := protocol.GameToDTO(t.game)
 	wrapped, err := protocol.PackageMessage(gameData)
 	if err != nil {
-		slog.Error("unable to package message", "error", err)
+		t.log.Error("unable to package message", "error", err)
 		return
 	}
 	for client := range t.clients {
@@ -239,7 +248,7 @@ func (t *Table) CreateDTO() protocol.TableDTO {
 }
 
 func (t *Table) RegisterClient(client *Client) {
-	slog.Info("attempting to register client", "client", client.id)
+	t.log.Info("attempting to register client", "client", client.id)
 	playerReconnecting := t.game.GetPlayer(client.id) != nil
 	if !playerReconnecting {
 		p := game.NewPlayer(client.id)
@@ -253,7 +262,7 @@ func (t *Table) RegisterClient(client *Client) {
 }
 
 func (t *Table) UnregisterClient(client *Client) {
-	slog.Info("attempting to unregister client", "client", client.id)
+	t.log.Info("attempting to unregister client", "client", client.id)
 	t.DisconnectPlayer(client, false)
 	if _, ok := t.clients[client]; ok {
 		delete(t.clients, client)

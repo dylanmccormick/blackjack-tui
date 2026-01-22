@@ -1,8 +1,10 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
+	"sync"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
@@ -16,9 +18,9 @@ type Lobby struct {
 	unregisterChan chan *Client
 	inbound        chan inboundMessage
 	outbound       chan []byte
-	stopChan       chan struct{}
-
-	tables map[string]*Table
+	tables         map[string]*Table
+	tableWg        sync.WaitGroup
+	log            *slog.Logger
 }
 
 func newLobby() *Lobby {
@@ -28,28 +30,37 @@ func newLobby() *Lobby {
 		unregisterChan: make(chan *Client),
 		inbound:        make(chan inboundMessage),
 		outbound:       make(chan []byte),
-		stopChan:       make(chan struct{}),
 		tables:         make(map[string]*Table),
+		log:            slog.With("component", "lobby"),
 	}
 }
 
-func (l *Lobby) run() {
+func (l *Lobby) run(ctx context.Context) {
 	for {
 		select {
-		case <-l.stopChan:
-			slog.Info("Closing lobby")
+		case <-ctx.Done():
+			l.log.Info("Lobby Shutting Down")
+			l.shutdownTables()
 			return
 		case client := <-l.registerChan:
 			l.RegisterClient(client)
 		case client := <-l.unregisterChan:
 			l.UnregisterClient(client)
 		case msg := <-l.inbound:
-			l.handleCommand(msg)
+			l.handleCommand(ctx, msg)
 		}
 	}
 }
 
+func (l *Lobby) shutdownTables() {
+	for _, table := range l.tables {
+		table.cancel()
+	}
+	l.tableWg.Wait()
+}
+
 func (l *Lobby) UnregisterClient(client *Client) {
+	l.log.Info("Unregistering client", "client", client.id)
 	delete(l.clients, client)
 	close(client.send)
 }
@@ -63,41 +74,50 @@ func getValueFromRawValueMessage(raw json.RawMessage) (string, error) {
 	return value.Value, nil
 }
 
-func (l *Lobby) handleCommand(msg inboundMessage) {
+func (l *Lobby) handleCommand(ctx context.Context, msg inboundMessage) {
 	// join table, change username, get stats, etc
-	slog.Info("lobby got command", "command", msg.data)
+	l.log.Debug("lobby got command", "command", msg.data)
 	switch msg.data.Type {
 	case protocol.MsgCreateTable:
 		val, err := getValueFromRawValueMessage(msg.data.Data)
 		if err != nil {
 			return
 		}
-		slog.Info("Attempting to create table", "name", val)
-		l.createTable(val)
+		l.log.Info("Attempting to create table", "name", val)
+		l.createTable(ctx, val)
 	case protocol.MsgJoinTable:
 		val, err := getValueFromRawValueMessage(msg.data.Data)
 		if err != nil {
 			return
 		}
-		slog.Info("Attempting to join table", "name", val)
+		l.log.Info("Attempting to join table", "name", val, "client", msg.client)
 		l.joinTable(val, msg.client)
 	case protocol.MsgTableList:
-		slog.Info("Listing Tables")
+		l.log.Debug("Listing Tables")
 		l.listTables(msg.client)
+
+	case protocol.MsgDeleteTable:
+		val, err := getValueFromRawValueMessage(msg.data.Data)
+		if err != nil {
+			return
+		}
+		l.log.Info("Attempting to delete table", "name", val)
+		l.deleteTable(val)
 	}
 }
 
 func (l *Lobby) RegisterClient(client *Client) {
+	l.log.Info("registering client", "client", client.id)
 	l.clients[client] = true
 }
 
 func (l *Lobby) register(c *Client) {
-	slog.Info("Registering client to lobby")
+	l.log.Debug("Registering client to lobby", "client", c.id)
 	l.registerChan <- c
 }
 
 func (l *Lobby) unregister(c *Client) {
-	slog.Info("adding to lobby unregister chan")
+	l.log.Debug("adding to lobby unregister chan", "client", c.id)
 	l.unregisterChan <- c
 }
 
@@ -105,14 +125,18 @@ func (l *Lobby) sendMessage(msg inboundMessage) {
 	l.inbound <- msg
 }
 
-func (l *Lobby) createTable(name string) {
+func (l *Lobby) createTable(ctx context.Context, name string) {
 	if _, ok := l.tables[name]; ok {
-		slog.Warn("Table name already exists... not creating new table")
+		l.log.Warn("Table name already exists... not creating new table")
 		return
 	}
-	t := newTable(name)
+	t := newTable(name, l)
+	tableCtx, tableCancel := context.WithCancel(ctx)
+	t.cancel = tableCancel
 	l.tables[name] = t
-	go t.run()
+	l.tableWg.Go(func() {
+		t.run(tableCtx)
+	})
 	for client := range l.clients {
 		l.listTables(client)
 	}
@@ -120,12 +144,12 @@ func (l *Lobby) createTable(name string) {
 
 func (l *Lobby) deleteTable(name string) {
 	if t, ok := l.tables[name]; ok {
-		t.stopChan <- struct{}{}
+		t.cancel()
 		// this may have to do some cleanup. send everyone in the table back to the lobby
 		delete(l.tables, name)
 		return
 	}
-	slog.Warn("Table name doesn't exist. cannot delete anything")
+	l.log.Warn("Table name doesn't exist. cannot delete anything")
 }
 
 func (l *Lobby) joinTable(name string, c *Client) {
@@ -137,7 +161,7 @@ func (l *Lobby) joinTable(name string, c *Client) {
 		delete(l.clients, c)
 		return
 	}
-	slog.Warn("The table does not exist", "name", name)
+	l.log.Warn("The table does not exist", "name", name)
 }
 
 func (l *Lobby) Id() string {
@@ -151,7 +175,7 @@ func (l *Lobby) listTables(c *Client) {
 	}
 	data, err := protocol.PackageMessage(out)
 	if err != nil {
-		slog.Error("Unable to send list tables in lobby")
+		l.log.Error("Unable to send list tables in lobby")
 	}
 	c.send <- data
 }

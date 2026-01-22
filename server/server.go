@@ -2,11 +2,14 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
@@ -15,11 +18,10 @@ import (
 )
 
 var (
-	newline = []byte{'\n'}
-	space   = []byte{' '}
+	newline   = []byte{'\n'}
+	space     = []byte{' '}
+	serverLog *slog.Logger
 )
-
-var lobby = newLobby()
 
 type manager interface {
 	register(*Client)
@@ -35,6 +37,7 @@ type Client struct {
 	manager  manager
 	send     chan *protocol.TransportMessage
 	username string
+	log      *slog.Logger
 }
 
 const (
@@ -51,36 +54,60 @@ var upgrader = websocket.Upgrader{
 
 func RunServer() {
 	handlerOptions := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level: slog.LevelInfo,
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
 	slog.SetDefault(logger)
-	go lobby.run()
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("Received connection")
-		serveWs(w, r)
+	serverLog = slog.With("component", "server")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// signal handler
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	lobby := newLobby()
+
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
+		lobby.run(ctx)
 	})
-	err := http.ListenAndServe(":8080", nil)
-	if err != nil {
-		slog.Error("Error serving http", "error", err)
-		os.Exit(1)
-	}
+
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		serverLog.Info("Received connection")
+		serveWs(lobby, w, r)
+	})
+
+	server := &http.Server{Addr: ":8080"}
+	go server.ListenAndServe()
+
+	<-sigChan
+	serverLog.Info("Received shutdown signal")
+	cancel()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	server.Shutdown(shutdownCtx)
+
+	wg.Wait()
+	serverLog.Info("Shutdown Complete")
 }
 
 func generateId(c *websocket.Conn) uuid.UUID {
 	// TODO: Generate uuid from websocket so it's sticky... figure that out later
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		slog.Error("ERROR GENERATING UUID", "error", err)
+		serverLog.Error("ERROR GENERATING UUID", "error", err)
 	}
 	return uuid
 }
 
-func serveWs(w http.ResponseWriter, r *http.Request) {
+func serveWs(l *Lobby, w http.ResponseWriter, r *http.Request) {
 	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("An error occurred upgrading the http connection", "error", err)
+		serverLog.Error("An error occurred upgrading the http connection", "error", err)
 		// TODO: this should send some sort of error back to the client
 		return
 	}
@@ -88,7 +115,8 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 		conn:    conn,
 		send:    make(chan *protocol.TransportMessage, 10),
 		id:      generateId(conn),
-		manager: lobby,
+		manager: l,
+		log:     slog.With("component", "client"),
 	}
 	client.manager.register(client)
 
@@ -99,8 +127,9 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 func (c *Client) readPump() {
 	defer func() {
 		c.mu.Lock()
-		c.manager.unregister(c)
+		mgr := c.manager
 		c.mu.Unlock()
+		mgr.unregister(c)
 		c.conn.Close()
 	}()
 	c.conn.SetReadLimit(maxMessageSize)
@@ -109,13 +138,14 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			slog.Error("retrieved an error", "error", err)
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				c.log.Error("error: %v", err)
+			}
 			break
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
 		uMsg, err := unpackMessage(message)
 		c.mu.Lock()
-		slog.Info("writing message to manager", "manager", c.manager.Id())
 		c.manager.sendMessage(inboundMessage{uMsg, c})
 		c.mu.Unlock()
 	}
@@ -145,11 +175,11 @@ func (c *Client) writePump() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			slog.Info("Writing message", "message", message)
+			c.log.Debug("Writing message", "message", message)
 			c.conn.WriteJSON(message)
 			for range len(c.send) {
 				msg := <-c.send
-				slog.Info("Writing message", "message", msg)
+				c.log.Debug("Writing message", "message", msg)
 				c.conn.WriteJSON(msg)
 			}
 		case <-ticker.C:

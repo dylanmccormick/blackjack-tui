@@ -23,6 +23,7 @@ const (
 	MsgJoinTable   = "join_table"
 	MsgLeaveTable  = "leave_table"
 	MsgCreateTable = "create_table"
+	MsgDeleteTable = "delete_table"
 	MsgStartGame   = "start_game"
 	MsgDealCards   = "deal_cards"
 	MsgGetState    = "get_state"
