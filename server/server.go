@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dylanmccormick/blackjack-tui/auth"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -67,6 +68,7 @@ func RunServer() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	lobby := newLobby()
+	sessionManager := auth.NewSessionManager()
 
 	var wg sync.WaitGroup
 
@@ -74,9 +76,26 @@ func RunServer() {
 		lobby.run(ctx)
 	})
 
+	wg.Go(func() {
+		sessionManager.Run(ctx)
+	})
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		serverLog.Info("Received connection")
+		// todo... validate logged in
 		serveWs(lobby, w, r)
+	})
+
+	http.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
+		serverLog.Info("Received login request")
+		session := auth.LoginHandler(w, r)
+		sessionManager.AddSession(session)
+	})
+
+	http.HandleFunc("/auth/status", func(w http.ResponseWriter, r *http.Request) {
+		serverLog.Debug("getting status for request")
+		id := "" // will come from request eventually
+		auth.HandleAuthCheck(sessionManager, id, w, r)
 	})
 
 	server := &http.Server{Addr: ":8080"}

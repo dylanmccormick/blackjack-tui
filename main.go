@@ -6,6 +6,7 @@ import (
 
 	"github.com/dylanmccormick/blackjack-tui/client"
 	"github.com/dylanmccormick/blackjack-tui/server"
+	"github.com/dylanmccormick/blackjack-tui/auth"
 )
 
 func main() {
@@ -21,5 +22,7 @@ func main() {
 		client.RunTui(mockFlg)
 	case "server":
 		server.RunServer()
+	case "test":
+		auth.RunTest()
 	}
 }
