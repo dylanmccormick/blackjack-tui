@@ -12,9 +12,9 @@ import (
 
 func ReceiveMessage(sub <-chan *protocol.TransportMessage) tea.Cmd {
 	return func() tea.Msg {
-		log.Println("Reading message from chan")
+		// log.Println("Reading message from chan")
 		msg := <-sub
-		log.Println(msg)
+		// log.Println(msg)
 		switch msg.Type {
 		case protocol.MsgGameState:
 			body := &protocol.GameDTO{}

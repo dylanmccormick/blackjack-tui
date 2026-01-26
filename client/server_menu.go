@@ -15,6 +15,8 @@ type ServerMenuModel struct {
 	currServerIndex int
 	Commands        map[string]string
 	commandSet      bool
+	loginMenu       *LoginMenu
+	state           string
 }
 
 func NewServerMenu() *ServerMenuModel {
@@ -30,6 +32,7 @@ func NewServerMenu() *ServerMenuModel {
 			"esc":   "back",
 			"n":     "new server",
 		},
+		loginMenu: &LoginMenu{userCodePage, "", ""},
 	}
 }
 
@@ -38,6 +41,9 @@ func (sm *ServerMenuModel) Init() tea.Cmd {
 }
 
 func (sm *ServerMenuModel) View() string {
+	if sm.state == "login" {
+		return sm.loginMenu.View()
+	}
 	selectedServerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
 	view := []string{}
 	for i, menuItem := range sm.savedServers {
@@ -59,6 +65,8 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sm.commandSet = true
 	}
 	switch msg := msg.(type) {
+	case LoginServerMsg:
+		sm.state = "login"
 	case TextFocusMsg:
 		sm.textInput.Focus()
 	case tea.KeyMsg:
@@ -80,11 +88,11 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(sm.savedServers) > 0 {
 					server = sm.savedServers[sm.currServerIndex]
 					// TODO: join a saved server
+					cmds = append(cmds, LoginServerCmd(server))
 					log.Printf("Attempting to join server: %s", server)
 				}
 			}
 			// This will be to join a server
-			cmd = nil
 			cmds = append(cmds, cmd)
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
@@ -103,6 +111,10 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
+	if sm.state == "login" {
+		sm.loginMenu, cmd = sm.loginMenu.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	if sm.textInput.Focused() {
 		sm.textInput, cmd = sm.textInput.Update(msg)
@@ -110,4 +122,14 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return sm, tea.Batch(cmds...)
+}
+
+type LoginServerMsg struct {
+	server string
+}
+
+func LoginServerCmd(server string) tea.Cmd {
+	return func() tea.Msg {
+		return LoginServerMsg{server}
+	}
 }

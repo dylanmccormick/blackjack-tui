@@ -81,11 +81,11 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return rm, tea.Quit
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
-			case "c":
-				// todo... turn this into a command!
-				rm.transporter.Connect()
-				cmd := SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
-				cmds = append(cmds, cmd)
+			// case "c":
+			// 	// todo... turn this into a command!
+			// 	rm.transporter.Connect()
+			// 	cmd := SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
+			// 	cmds = append(cmds, cmd)
 			}
 		}
 	case tea.WindowSizeMsg:
