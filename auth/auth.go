@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -26,6 +28,14 @@ type Session struct {
 	createdAt     time.Time
 }
 
+func (s *Session) String() string {
+	sb := strings.Builder{}
+	sb.WriteString("SessionId: " + s.SessionId)
+	sb.WriteString("\tauth: " + strconv.FormatBool(s.authenticated))
+	sb.WriteString("\tuserId: " + s.githubUserId)
+	return sb.String()
+}
+
 type GHDeviceResponse struct {
 	UserCode        string `json:"user_code"`
 	DeviceCode      string `json:"device_code"`
@@ -37,10 +47,21 @@ type GHDeviceResponse struct {
 func HandleAuthCheck(sm *SessionManager, id string, w http.ResponseWriter, r *http.Request) bool {
 	session, err := sm.GetSession(id)
 	if err != nil {
-		// write 404 error
+		data := map[string]string{"message": "session not found"}
+		err = WriteHttpResponse(w, 404, data)
+		if err != nil {
+			slog.Error("Error in HandleAuthCheck", "error", err)
+			WriteHttpResponse(w, 500, map[string]string{"message": "InternalServerError"})
+		}
 		return false
 	}
-	// write 200
+
+	data := map[string]string{"authenticated": fmt.Sprintf("%v", session.authenticated)}
+	err = WriteHttpResponse(w, 200, data)
+	if err != nil {
+		slog.Error("Error in HandleAuthCheck", "error", err)
+		WriteHttpResponse(w, 500, map[string]string{"message": "InternalServerError"})
+	}
 	return session.authenticated
 }
 

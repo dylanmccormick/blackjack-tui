@@ -69,7 +69,8 @@ func (sm *SessionManager) getSession(resp chan<- *Session, id string) {
 	resp <- s
 }
 
-func (sm *SessionManager) pollGit(s *Session) error {
+func (sm *SessionManager) pollGit(s *Session) (bool, error) {
+	var auth bool
 	client := &http.Client{Timeout: 20 * time.Second}
 
 	grantType := fmt.Sprintf("urn:ietf:params:oauth:grant-type:%s", "device_code")
@@ -77,7 +78,7 @@ func (sm *SessionManager) pollGit(s *Session) error {
 	data := map[string]string{"client_id": clientId, "device_code": s.deviceCode, "grant_type": grantType}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	url := "https://github.com/login/oauth/access_token"
@@ -88,7 +89,7 @@ func (sm *SessionManager) pollGit(s *Session) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		fmt.Printf("Error sending request: %s\n", err)
-		return err
+		return false, err
 	}
 	defer resp.Body.Close()
 
@@ -96,41 +97,100 @@ func (sm *SessionManager) pollGit(s *Session) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Printf("Error reading response body: %s\n", err)
-		return err
+		return false, err
 	}
-	var returnData GHDeviceResponse
+
+	var returnData struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		Scope       string `json:"scope"`
+	}
 	err = json.Unmarshal(body, &returnData)
 	if err != nil {
 		fmt.Printf("Error reading response, err:%#v\n", err)
 	}
 
-	fmt.Println(string(body))
+	slog.Info("Response", "response", returnData)
 
-	return nil
-}
-
-func (sm *SessionManager) PollSession(ctx context.Context, s *Session) {
-	// polls the git endpoint at a 5 second interval until 15 minutes have passed or the session is authenticated
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-	for range ticker.C {
-		// poll github
-		err := sm.pollGit(s)
-		if err != nil {
-			// do some garbage
-			sm.log.Error("Github error", "error", err)
-		}
-
-		// if authorized. update session and return
+	if resp.StatusCode == 200 {
+		auth = true
 		sm.Commands <- &SessionCmd{
 			Action:    "updateSession",
 			SessionId: s.SessionId,
 
 			Authenticated: true,
 			GHUserId:      "#TODO",
-			GHToken:       "#TODO",
+			GHToken:       returnData.AccessToken,
 		}
-		// if past 15 minutes return
+	}
+
+	return auth, nil
+}
+
+func (sm *SessionManager) UpdateUsername(ctx context.Context, s *Session) error {
+	client := &http.Client{Timeout: 20 * time.Second}
+
+	slog.Info("Bearer token", "token", s.githubToken)
+
+	url := "https://api.github.com/user"
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Set("Content-Type", "application/vnd.github+json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.githubToken)
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Error("Error sending request: %s\n", "error", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("Error reading response body: %s\n", "error", err)
+		return err
+	}
+
+	var returnData struct {
+		UserName string `json:"login"`
+	}
+	err = json.Unmarshal(body, &returnData)
+	if err != nil {
+		fmt.Printf("Error reading response, err:%#v\n", err)
+	}
+	if resp.StatusCode == 200 {
+		sm.Commands <- &SessionCmd{
+			Action:    "updateSession",
+			GHUserId:  returnData.UserName,
+			SessionId: s.SessionId,
+		}
+	}
+	if resp.StatusCode != 200 {
+		slog.Warn("Error getting username from github")
+		slog.Info("Response", "status", resp.StatusCode, "response body", resp.Body, "responseStatus", resp.Status)
+	}
+
+	return nil
+}
+
+func (sm *SessionManager) PollSession(ctx context.Context, s *Session) {
+	// polls the git endpoint at a 5 second interval until 15 minutes have passed or the session is authenticated
+	ticker := time.NewTicker(20 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		// poll github
+		authenticated, err := sm.pollGit(s)
+		if err != nil {
+			// do some garbage
+			sm.log.Error("Github error", "error", err)
+		}
+		if authenticated {
+			sm.log.Info("Stopping poll. got positive auth check")
+			ticker.Stop()
+			sm.Commands <- &SessionCmd{Action: "getUsername", Session: s}
+			return
+		}
 	}
 }
 
@@ -139,20 +199,22 @@ func (sm *SessionManager) AddSession(s *Session) {
 	sm.Commands <- cmd
 }
 
-func (sm *SessionManager) UpdateSession(s *Session) {
-	// TODO: refactor so we do our own commands. Maybe we don't need the UpdateSession method? not sure
-	cmd := &SessionCmd{Action: "updateSession", Session: s}
-	sm.Commands <- cmd
-}
-
 func (sm *SessionManager) updateSession(c *SessionCmd) {
 	s, ok := sm.sessions[c.SessionId]
 	if !ok {
 		return
 	}
-	s.authenticated = c.Authenticated
-	s.githubToken = c.GHToken
-	s.githubUserId = c.GHUserId
+	slog.Info("Updating session before", "session", s.String())
+	if c.Authenticated != false {
+		s.authenticated = c.Authenticated
+	}
+	if c.GHToken != "" {
+		s.githubToken = c.GHToken
+	}
+	if c.GHUserId != "" {
+		s.githubUserId = c.GHUserId
+	}
+	slog.Info("Updating session after", "session", s.String())
 }
 
 func (sm *SessionManager) addSession(s *Session) {
@@ -168,6 +230,8 @@ func (sm *SessionManager) ProcessCommand(ctx context.Context, cmd *SessionCmd) {
 		go sm.PollSession(ctx, cmd.Session)
 	case "updateSession":
 		sm.updateSession(cmd)
+	case "getUsername":
+		sm.UpdateUsername(ctx, cmd.Session)
 	}
 }
 

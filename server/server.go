@@ -94,7 +94,7 @@ func RunServer() {
 
 	http.HandleFunc("/auth/status", func(w http.ResponseWriter, r *http.Request) {
 		serverLog.Debug("getting status for request")
-		id := "" // will come from request eventually
+		id := r.URL.Query().Get("id")
 		auth.HandleAuthCheck(sessionManager, id, w, r)
 	})
 
