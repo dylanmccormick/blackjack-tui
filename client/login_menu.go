@@ -61,19 +61,20 @@ func (lm *LoginMenu) Update(msg tea.Msg) (*LoginMenu, tea.Cmd) {
 	case AuthPollMsg:
 		if msg.Authenticated {
 			lm.page = confirmationPage
+			cmds = append(cmds, StartWSCmd(lm.sessionId))
 		}
 
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			cmd = AuthLoginCmd()
-			cmds = append(cmds, cmd)
-		case tea.KeyRunes:
-			switch string(msg.Runes) {
-			case "o":
+			if lm.userCode != "" {
 				cmd = AuthPollAccess(lm.sessionId)
 				cmds = append(cmds, cmd)
+			} else {
+				cmd = AuthLoginCmd()
+				cmds = append(cmds, cmd)
 			}
+		case tea.KeyRunes:
 		}
 	}
 
@@ -107,41 +108,44 @@ func AuthPollAccess(sessionId string) tea.Cmd {
 }
 
 func CheckAccess(sessionId string) AuthPollMsg {
-	client := &http.Client{Timeout: 20 * time.Second}
+	ticker := time.NewTicker(10 * time.Second)
+	for range ticker.C {
+		client := &http.Client{Timeout: 20 * time.Second}
 
-	url := "http://localhost:8080/auth/status"
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		slog.Debug("error sending request", "error", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	q := req.URL.Query()
-	q.Add("id", sessionId)
-	req.URL.RawQuery = q.Encode()
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Error sending request: %s\n", err)
-	}
-	defer resp.Body.Close()
+		url := "http://localhost:8080/auth/status"
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			slog.Debug("error sending request", "error", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		q := req.URL.Query()
+		q.Add("id", sessionId)
+		req.URL.RawQuery = q.Encode()
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("Error sending request: %s\n", err)
+		}
+		defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading response body: %s\n", err)
-	}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("Error reading response body: %s\n", err)
+		}
 
-	slog.Info("reading body", "body", body)
-	var data struct {
-		Authenticated string `json:"authenticated"`
-	}
+		var data struct {
+			Authenticated string `json:"authenticated"`
+		}
 
-	err = json.Unmarshal(body, &data)
-	if err != nil {
-		slog.Error("error loading json", "error", err)
-	}
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			slog.Error("error loading json", "error", err)
+		}
 
-	if data.Authenticated == "true" {
-		return AuthPollMsg{true}
+		if data.Authenticated == "true" {
+			ticker.Stop()
+			return AuthPollMsg{true}
+		}
 	}
 	return AuthPollMsg{false}
 }

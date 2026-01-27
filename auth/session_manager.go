@@ -70,7 +70,7 @@ func (sm *SessionManager) getSession(resp chan<- *Session, id string) {
 }
 
 func (sm *SessionManager) pollGit(s *Session) (bool, error) {
-	var auth bool
+	auth := false
 	client := &http.Client{Timeout: 20 * time.Second}
 
 	grantType := fmt.Sprintf("urn:ietf:params:oauth:grant-type:%s", "device_code")
@@ -100,10 +100,13 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 		return false, err
 	}
 
+	slog.Info("Poll git body", "body", string(body), "resp", resp, "status_code", resp.StatusCode, "status", resp.Status)
+
 	var returnData struct {
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`
 		Scope       string `json:"scope"`
+		Error       string `json:"error"`
 	}
 	err = json.Unmarshal(body, &returnData)
 	if err != nil {
@@ -112,7 +115,7 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 
 	slog.Info("Response", "response", returnData)
 
-	if resp.StatusCode == 200 {
+	if returnData.Error == "" {
 		auth = true
 		sm.Commands <- &SessionCmd{
 			Action:    "updateSession",
@@ -181,6 +184,7 @@ func (sm *SessionManager) PollSession(ctx context.Context, s *Session) {
 	for range ticker.C {
 		// poll github
 		authenticated, err := sm.pollGit(s)
+		fmt.Printf("GOT %v from pollGit", authenticated)
 		if err != nil {
 			// do some garbage
 			sm.log.Error("Github error", "error", err)
@@ -204,9 +208,9 @@ func (sm *SessionManager) updateSession(c *SessionCmd) {
 	if !ok {
 		return
 	}
-	slog.Info("Updating session before", "session", s.String())
+	slog.Info("Updating session before", "session", fmt.Sprint(s.String()))
 	if c.Authenticated != false {
-		s.authenticated = c.Authenticated
+		s.Authenticated = c.Authenticated
 	}
 	if c.GHToken != "" {
 		s.githubToken = c.GHToken
@@ -218,6 +222,7 @@ func (sm *SessionManager) updateSession(c *SessionCmd) {
 }
 
 func (sm *SessionManager) addSession(s *Session) {
+	slog.Info("Adding session to session manager", "sessionID", s.SessionId)
 	sm.sessions[s.SessionId] = s
 }
 

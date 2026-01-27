@@ -83,7 +83,7 @@ func RunServer() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		serverLog.Info("Received connection")
 		// todo... validate logged in
-		serveWs(lobby, w, r)
+		serveWs(sessionManager, lobby, w, r)
 	})
 
 	http.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
@@ -122,8 +122,22 @@ func generateId(c *websocket.Conn) uuid.UUID {
 	return uuid
 }
 
-func serveWs(l *Lobby, w http.ResponseWriter, r *http.Request) {
+func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.Request) {
 	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
+	// CHECK SESSION MANAGER FOR KEY
+	sessionId := r.URL.Query().Get("session")
+	session, err := sm.GetSession(sessionId)
+	if err != nil {
+		// TODO: return a rejection response to requester
+		serverLog.Error("error with session", "error", err)
+		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		return
+	}
+	if !session.Authenticated {
+		// TODO: return a rejection response to requester
+		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		return
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		serverLog.Error("An error occurred upgrading the http connection", "error", err)

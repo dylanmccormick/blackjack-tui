@@ -74,6 +74,10 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rm.page = msg.page
 	case SendMsg:
 		cmds = append(cmds, rm.Send(msg.data))
+	case StartWSMsg:
+		rm.transporter.Connect(msg.SessionId)
+		cmd := SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
+		cmds = append(cmds, cmd)
 	case tea.KeyMsg:
 		// Top Level Keys. Kill the program type keys
 		switch msg.Type {
@@ -81,11 +85,6 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return rm, tea.Quit
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
-			// case "c":
-			// 	// todo... turn this into a command!
-			// 	rm.transporter.Connect()
-			// 	cmd := SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
-			// 	cmds = append(cmds, cmd)
 			}
 		}
 	case tea.WindowSizeMsg:
@@ -184,6 +183,16 @@ func RunTui(mock *bool) {
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there has been an error: %v", err)
 		os.Exit(1)
+	}
+}
+
+type StartWSMsg struct {
+	SessionId string
+}
+
+func StartWSCmd(sessionId string) tea.Cmd {
+	return func() tea.Msg {
+		return StartWSMsg{sessionId}
 	}
 }
 

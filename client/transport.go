@@ -31,10 +31,10 @@ func NewWsTransportMessageIO() *WsTransportMessageIO {
 
 type TransportMessageIO interface {
 	GetChan() chan *protocol.TransportMessage
-	Connect() error // I think later we'll add an address you can connect to as a param
-	Stop()          // Stops fetch data goroutine and disconnects from server.
-	SendData()      // Reads from data chan sends JSON data across the wire to the server
-	FetchData()     // Runs goroutine to pull data from the server connection
+	Connect(string) error // I think later we'll add an address you can connect to as a param
+	Stop()                // Stops fetch data goroutine and disconnects from server.
+	SendData()            // Reads from data chan sends JSON data across the wire to the server
+	FetchData()           // Runs goroutine to pull data from the server connection
 	QueueData(*protocol.TransportMessage)
 }
 
@@ -60,8 +60,12 @@ func (ws *WsTransportMessageIO) Stop() {
 	ws.disconnect <- struct{}{}
 }
 
-func (ws *WsTransportMessageIO) Connect() error {
+func (ws *WsTransportMessageIO) Connect(sessionId string) error {
 	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/"}
+	q := u.Query()
+	q.Set("session", sessionId)
+	u.RawQuery = q.Encode()
+	slog.Info("URL STRING", "query", u.RawQuery, "host", u.Host, "path", u.RawPath)
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		return err
@@ -229,7 +233,7 @@ func (m *MockTransportMessageIO) Stop() {
 	m.disconnect <- struct{}{}
 }
 
-func (m *MockTransportMessageIO) Connect() error {
+func (m *MockTransportMessageIO) Connect(sessionId string) error {
 	log.Println("got connect message")
 	go m.FetchData()
 	go m.SendData()

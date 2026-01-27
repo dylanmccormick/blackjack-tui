@@ -20,7 +20,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) *Session {
 		SessionId:     SessionId,
 		createdAt:     time.Now(),
 		lastRequest:   time.Now(),
-		authenticated: false,
+		Authenticated: false,
 	}
 	// 2. send GH request
 	err = sendDeviceRequest(&session)

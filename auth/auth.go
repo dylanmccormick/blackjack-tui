@@ -24,15 +24,17 @@ type Session struct {
 	githubToken   string
 	githubUserId  string
 	lastRequest   time.Time
-	authenticated bool
+	Authenticated bool
 	createdAt     time.Time
 }
 
 func (s *Session) String() string {
 	sb := strings.Builder{}
 	sb.WriteString("SessionId: " + s.SessionId)
-	sb.WriteString("\tauth: " + strconv.FormatBool(s.authenticated))
-	sb.WriteString("\tuserId: " + s.githubUserId)
+	fmt.Fprint(&sb, "\n\t") 
+	sb.WriteString("auth: " + strconv.FormatBool(s.Authenticated))
+	fmt.Fprint(&sb, "\n\t") 
+	sb.WriteString("userId: " + s.githubUserId)
 	return sb.String()
 }
 
@@ -56,13 +58,13 @@ func HandleAuthCheck(sm *SessionManager, id string, w http.ResponseWriter, r *ht
 		return false
 	}
 
-	data := map[string]string{"authenticated": fmt.Sprintf("%v", session.authenticated)}
+	data := map[string]string{"authenticated": fmt.Sprintf("%v", session.Authenticated)}
 	err = WriteHttpResponse(w, 200, data)
 	if err != nil {
 		slog.Error("Error in HandleAuthCheck", "error", err)
 		WriteHttpResponse(w, 500, map[string]string{"message": "InternalServerError"})
 	}
-	return session.authenticated
+	return session.Authenticated
 }
 
 func sendDeviceRequest(session *Session) error {
