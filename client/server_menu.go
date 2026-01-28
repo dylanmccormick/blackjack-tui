@@ -65,8 +65,9 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sm.commandSet = true
 	}
 	switch msg := msg.(type) {
-	case LoginServerMsg:
+	case LoginRequested:
 		sm.state = "login"
+		sm.loginMenu.currentUrl = sm.savedServers[sm.currServerIndex]
 	case TextFocusMsg:
 		sm.textInput.Focus()
 	case tea.KeyMsg:
@@ -88,7 +89,7 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(sm.savedServers) > 0 {
 					server = sm.savedServers[sm.currServerIndex]
 					// TODO: join a saved server
-					cmds = append(cmds, LoginServerCmd(server))
+					cmds = append(cmds, RequestLogin(server))
 					log.Printf("Attempting to join server: %s", server)
 				}
 			}
@@ -124,12 +125,4 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return sm, tea.Batch(cmds...)
 }
 
-type LoginServerMsg struct {
-	server string
-}
 
-func LoginServerCmd(server string) tea.Cmd {
-	return func() tea.Msg {
-		return LoginServerMsg{server}
-	}
-}

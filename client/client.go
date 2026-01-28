@@ -32,7 +32,9 @@ type RootModel struct {
 	width  int
 	height int
 
-	transporter TransportMessageIO
+	mock bool
+
+	transporter BackendClient
 	wsMessages  <-chan *protocol.TransportMessage
 	conn        *websocket.Conn
 
@@ -59,6 +61,18 @@ type errMsg struct {
 	err error
 }
 
+func (rm *RootModel) Login(url string) tea.Cmd {
+	return func() tea.Msg {
+		return rm.transporter.StartAuth(url)
+	}
+}
+
+func (rm *RootModel) CheckLoginStatus() tea.Cmd {
+	return func() tea.Msg {
+		return rm.transporter.PollAuth()
+	}
+}
+
 func (rm *RootModel) Send(data *protocol.TransportMessage) tea.Cmd {
 	return func() tea.Msg {
 		rm.transporter.QueueData(data)
@@ -70,12 +84,18 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case LoginRequested:
+		cmds = append(cmds, rm.Login(msg.Url))
+	case AuthLoginMsg:
+		cmds = append(cmds, rm.CheckLoginStatus())
+	case AuthPollMsg:
+		cmds = append(cmds, StartWSCmd())
 	case ChangeRootPageMsg:
 		rm.page = msg.page
 	case SendMsg:
 		cmds = append(cmds, rm.Send(msg.data))
 	case StartWSMsg:
-		rm.transporter.Connect(msg.SessionId)
+		rm.transporter.Connect()
 		cmd := SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
 		cmds = append(cmds, cmd)
 	case tea.KeyMsg:
@@ -107,7 +127,7 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return rm, tea.Batch(append(cmds, ReceiveMessage(rm.wsMessages))...)
 }
 
-func NewRootModel(tmio TransportMessageIO) *RootModel {
+func NewRootModel(tmio BackendClient) *RootModel {
 	wsChan := tmio.GetChan()
 	return &RootModel{
 		transporter: tmio,
@@ -152,32 +172,20 @@ type TuiPlayer struct {
 	Bet    int
 }
 
-var testPlayers = []TuiPlayer{
-	{"dealer", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
-	{"player_1", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
-	{"player_2", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
-	{"player_3", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
-	{"player_4", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
-	{"player_5", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
-	{"player_6", []*Card{NewCard(0, 0), NewCard(0, 0)}, 0, 0, 0},
-}
-
 func RunTui(mock *bool) {
 	var rm *RootModel
-	if len(os.Getenv("DEBUG")) > 0 {
-		f, err := tea.LogToFile("debug.log", "debug")
-		if err != nil {
-			fmt.Println("fatal:", err)
-			os.Exit(1)
-		}
-		defer f.Close()
+	f, err := tea.LogToFile("debug.log", "debug")
+	if err != nil {
+		fmt.Println("fatal:", err)
+		os.Exit(1)
 	}
+	defer f.Close()
 	if *mock {
 		log.Println("running in mock mode")
 		rm = NewRootModel(NewMockTransporter())
 	} else {
 		log.Println("running in LIVE mode")
-		rm = NewRootModel(NewWsTransportMessageIO())
+		rm = NewRootModel(NewWsBackendClient())
 	}
 	p := tea.NewProgram(rm)
 	if _, err := p.Run(); err != nil {
@@ -186,13 +194,11 @@ func RunTui(mock *bool) {
 	}
 }
 
-type StartWSMsg struct {
-	SessionId string
-}
+type StartWSMsg struct{}
 
-func StartWSCmd(sessionId string) tea.Cmd {
+func StartWSCmd() tea.Cmd {
 	return func() tea.Msg {
-		return StartWSMsg{sessionId}
+		return StartWSMsg{}
 	}
 }
 
@@ -225,3 +231,13 @@ const banner = `
 | |_) | |___ / ___ \ |___| . \ |_| / ___ \ |___| . \  
 |____/|_____/_/   \_\____|_|\_\___/_/   \_\____|_|\_\ 
 `
+
+type AuthLoginMsg struct {
+	UserCode  string
+	Url       string
+	SessionId string
+}
+
+type AuthPollMsg struct {
+	Authenticated bool
+}

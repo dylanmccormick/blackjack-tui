@@ -16,6 +16,7 @@ const (
 	// server to client
 	MsgGameState = "game_state"
 	MsgTableList = "table_list"
+
 	// client to server
 	MsgPlaceBet    = "place_bet"
 	MsgHit         = "hit"
@@ -27,6 +28,9 @@ const (
 	MsgStartGame   = "start_game"
 	MsgDealCards   = "deal_cards"
 	MsgGetState    = "get_state"
+
+	MsgLogin      = "login"
+	MsgAuthStatus = "auth_status"
 )
 
 type ValueMessage struct {

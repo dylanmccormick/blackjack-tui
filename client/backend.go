@@ -2,68 +2,177 @@ package client
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"log/slog"
 	"math/rand/v2"
+	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 	"github.com/gorilla/websocket"
 )
 
-func NewMockTransporter() *MockTransportMessageIO {
-	return &MockTransportMessageIO{
-		out:        make(chan *protocol.TransportMessage),
+func NewMockTransporter() *MockBackendClient {
+	return &MockBackendClient{
+		wsOut:      make(chan *protocol.TransportMessage),
 		disconnect: make(chan struct{}),
 		data:       make(chan *protocol.TransportMessage),
 	}
 }
 
-func NewWsTransportMessageIO() *WsTransportMessageIO {
-	return &WsTransportMessageIO{
-		out:        make(chan *protocol.TransportMessage),
+func NewWsBackendClient() *WsBackendClient {
+	return &WsBackendClient{
+		serverUrl:  &url.URL{},
+		wsOut:      make(chan *protocol.TransportMessage),
 		disconnect: make(chan struct{}),
 		data:       make(chan *protocol.TransportMessage),
 	}
 }
 
-type TransportMessageIO interface {
+type BackendClient interface {
 	GetChan() chan *protocol.TransportMessage
-	Connect(string) error // I think later we'll add an address you can connect to as a param
+	Connect() error // I think later we'll add an address you can connect to as a param
 	Stop()                // Stops fetch data goroutine and disconnects from server.
 	SendData()            // Reads from data chan sends JSON data across the wire to the server
 	FetchData()           // Runs goroutine to pull data from the server connection
 	QueueData(*protocol.TransportMessage)
+
+	// HTTP Methods
+	StartAuth(url string) tea.Msg
+	PollAuth() tea.Msg
 }
 
-type WsTransportMessageIO struct {
+type WsBackendClient struct {
 	mut        sync.Mutex
-	out        chan *protocol.TransportMessage
+	serverUrl  *url.URL
+	wsOut      chan *protocol.TransportMessage
 	conn       *websocket.Conn
 	data       chan *protocol.TransportMessage
 	disconnect chan struct{}
+	sessionId  string
+}
+
+func (ws *WsBackendClient) StartAuth(u string) tea.Msg {
+	// http://localhost:8080
+	sUrl, err := url.Parse(u)
+	if err != nil {
+		slog.Error("Url parsing failed", "url", u, "error", err)
+	}
+	ws.serverUrl = sUrl
+
+	endpoint := "auth"
+	fullURL, err := url.JoinPath(ws.serverUrl.RawPath, endpoint)
+	if err != nil {
+		slog.Debug("error creating url path", "error", err)
+		return fmt.Errorf("")
+	}
+
+	client := &http.Client{Timeout: 20 * time.Second}
+	req, err := http.NewRequest("GET", fullURL, nil)
+	if err != nil {
+		slog.Debug("error sending request", "error", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("Error sending request: %s\n", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Printf("Error reading response body: %s\n", err)
+	}
+
+	slog.Info("reading body", "body", body)
+	var data struct {
+		SessionId string `json:"session_id"`
+		UserCode  string `json:"user_code"`
+	}
+
+	err = json.Unmarshal(body, &data)
+	if err != nil {
+		slog.Error("error loading json", "error", err)
+	}
+	return AuthLoginMsg{
+		UserCode:  data.UserCode,
+		Url:       "https://github.com/device/login",
+		SessionId: data.SessionId,
+	}
+}
+
+func (ws *WsBackendClient) PollAuth() tea.Msg {
+	fullURL, err := url.JoinPath(ws.serverUrl.RawPath, "auth", "status")
+	if err != nil {
+		slog.Debug("error creating url path", "error", err)
+		return fmt.Errorf("")
+	}
+	ticker := time.NewTicker(10 * time.Second)
+	client := &http.Client{Timeout: 20 * time.Second}
+	for range ticker.C {
+
+		req, err := http.NewRequest("GET", fullURL, nil)
+		if err != nil {
+			slog.Debug("error sending request", "error", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		q := req.URL.Query()
+		q.Add("id", ws.sessionId)
+		req.URL.RawQuery = q.Encode()
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("Error sending request: %s\n", err)
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("Error reading response body: %s\n", err)
+		}
+
+		var data struct {
+			Authenticated string `json:"authenticated"`
+		}
+
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			slog.Error("error loading json", "error", err)
+		}
+
+		if data.Authenticated == "true" {
+			ticker.Stop()
+			return AuthPollMsg{true}
+		}
+	}
+	return AuthPollMsg{false}
 }
 
 // this seems like a bad thing to do, but I'm not sure how else to interact with an interface
-func (ws *WsTransportMessageIO) QueueData(data *protocol.TransportMessage) {
+func (ws *WsBackendClient) QueueData(data *protocol.TransportMessage) {
 	ws.data <- data
 }
 
-func (ws *WsTransportMessageIO) GetChan() chan *protocol.TransportMessage {
-	return ws.out
+func (ws *WsBackendClient) GetChan() chan *protocol.TransportMessage {
+	return ws.wsOut
 }
 
-func (ws *WsTransportMessageIO) Stop() {
+func (ws *WsBackendClient) Stop() {
 	// This may need to do more later?
 	ws.disconnect <- struct{}{}
 }
 
-func (ws *WsTransportMessageIO) Connect(sessionId string) error {
+func (ws *WsBackendClient) Connect() error {
 	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/"}
 	q := u.Query()
-	q.Set("session", sessionId)
+	q.Set("session", ws.sessionId)
 	u.RawQuery = q.Encode()
 	slog.Info("URL STRING", "query", u.RawQuery, "host", u.Host, "path", u.RawPath)
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
@@ -77,7 +186,7 @@ func (ws *WsTransportMessageIO) Connect(sessionId string) error {
 	return nil
 }
 
-func (ws *WsTransportMessageIO) SendData() {
+func (ws *WsBackendClient) SendData() {
 	for msg := range ws.data {
 		ws.mut.Lock()
 		err := ws.conn.WriteJSON(msg)
@@ -88,12 +197,12 @@ func (ws *WsTransportMessageIO) SendData() {
 	}
 }
 
-func (ws *WsTransportMessageIO) FetchData() {
+func (ws *WsBackendClient) FetchData() {
 	log.Println("starting fetch data")
 	for {
 		select {
 		case <-ws.disconnect:
-			close(ws.out)
+			close(ws.wsOut)
 			ws.conn.Close()
 		default:
 			// Not using ReadJson because there are potentially multiple transport messages
@@ -106,7 +215,7 @@ func (ws *WsTransportMessageIO) FetchData() {
 			msg := ParseTransportMessage(data)
 			for _, m := range msg {
 				log.Printf("adding message to chan, %#v", m)
-				ws.out <- m
+				ws.wsOut <- m
 			}
 		}
 	}
@@ -119,19 +228,31 @@ const (
 	table
 )
 
-func (m *MockTransportMessageIO) QueueData(data *protocol.TransportMessage) {
+func (m *MockBackendClient) QueueData(data *protocol.TransportMessage) {
 	m.data <- data
 }
 
-type MockTransportMessageIO struct {
-	out        chan *protocol.TransportMessage
+func (m *MockBackendClient) PollAuth() tea.Msg {
+	return AuthPollMsg{true}
+}
+
+func (m *MockBackendClient) StartAuth(_ string) tea.Msg {
+	return AuthLoginMsg{
+		UserCode:  "TEST-TEST",
+		Url:       "https://github.com/device/login",
+		SessionId: "1234",
+	}
+}
+
+type MockBackendClient struct {
+	wsOut      chan *protocol.TransportMessage
 	conn       *websocket.Conn
 	disconnect chan struct{}
 	state      mockState
 	data       chan *protocol.TransportMessage
 }
 
-func (m *MockTransportMessageIO) SendData() {
+func (m *MockBackendClient) SendData() {
 	for data := range m.data {
 		switch data.Type {
 		case protocol.MsgJoinTable:
@@ -142,7 +263,7 @@ func (m *MockTransportMessageIO) SendData() {
 	}
 }
 
-func (m *MockTransportMessageIO) FetchData() {
+func (m *MockBackendClient) FetchData() {
 	log.Println("Starting fetchdata")
 	var tm []*protocol.TransportMessage
 	// eventually this will like read a file or generate some random messages that go through the flow of a blackjack game
@@ -160,11 +281,11 @@ func (m *MockTransportMessageIO) FetchData() {
 		}
 		select {
 		case <-m.disconnect:
-			close(m.out)
+			close(m.wsOut)
 		case <-tick.C:
 			log.Println("Adding mock messages to output channel")
 			for _, msg := range tm {
-				m.out <- msg
+				m.wsOut <- msg
 			}
 		}
 	}
@@ -225,15 +346,15 @@ func generateTableData() []*protocol.TransportMessage {
 	return []*protocol.TransportMessage{dat}
 }
 
-func (m *MockTransportMessageIO) GetChan() chan *protocol.TransportMessage {
-	return m.out
+func (m *MockBackendClient) GetChan() chan *protocol.TransportMessage {
+	return m.wsOut
 }
 
-func (m *MockTransportMessageIO) Stop() {
+func (m *MockBackendClient) Stop() {
 	m.disconnect <- struct{}{}
 }
 
-func (m *MockTransportMessageIO) Connect(sessionId string) error {
+func (m *MockBackendClient) Connect() error {
 	log.Println("got connect message")
 	go m.FetchData()
 	go m.SendData()
