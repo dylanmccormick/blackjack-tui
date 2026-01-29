@@ -98,7 +98,7 @@ func RunServer() {
 		auth.HandleAuthCheck(sessionManager, id, w, r)
 	})
 
-	server := &http.Server{Addr: ":8080"}
+	server := &http.Server{Addr: ":42069"}
 	go server.ListenAndServe()
 
 	<-sigChan
@@ -145,11 +145,12 @@ func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.R
 		return
 	}
 	client := &Client{
-		conn:    conn,
-		send:    make(chan *protocol.TransportMessage, 10),
-		id:      generateId(conn),
-		manager: l,
-		log:     slog.With("component", "client"),
+		conn:     conn,
+		send:     make(chan *protocol.TransportMessage, 10),
+		id:       generateId(conn),
+		manager:  l,
+		log:      slog.With("component", "client"),
+		username: session.GithubUserId,
 	}
 	client.manager.register(client)
 

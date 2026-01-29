@@ -216,7 +216,7 @@ func (sm *SessionManager) updateSession(c *SessionCmd) {
 		s.githubToken = c.GHToken
 	}
 	if c.GHUserId != "" {
-		s.githubUserId = c.GHUserId
+		s.GithubUserId = c.GHUserId
 	}
 	slog.Info("Updating session after", "session", s.String())
 }

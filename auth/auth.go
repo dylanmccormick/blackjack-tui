@@ -22,7 +22,7 @@ type Session struct {
 	deviceCode    string
 	userCode      string
 	githubToken   string
-	githubUserId  string
+	GithubUserId  string
 	lastRequest   time.Time
 	Authenticated bool
 	createdAt     time.Time
@@ -34,7 +34,7 @@ func (s *Session) String() string {
 	fmt.Fprint(&sb, "\n\t") 
 	sb.WriteString("auth: " + strconv.FormatBool(s.Authenticated))
 	fmt.Fprint(&sb, "\n\t") 
-	sb.WriteString("userId: " + s.githubUserId)
+	sb.WriteString("userId: " + s.GithubUserId)
 	return sb.String()
 }
 

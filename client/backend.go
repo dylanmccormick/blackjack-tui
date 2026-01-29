@@ -32,15 +32,16 @@ func NewWsBackendClient() *WsBackendClient {
 		wsOut:      make(chan *protocol.TransportMessage),
 		disconnect: make(chan struct{}),
 		data:       make(chan *protocol.TransportMessage),
+		mut:        sync.Mutex{},
 	}
 }
 
 type BackendClient interface {
 	GetChan() chan *protocol.TransportMessage
 	Connect() error // I think later we'll add an address you can connect to as a param
-	Stop()                // Stops fetch data goroutine and disconnects from server.
-	SendData()            // Reads from data chan sends JSON data across the wire to the server
-	FetchData()           // Runs goroutine to pull data from the server connection
+	Stop()          // Stops fetch data goroutine and disconnects from server.
+	SendData()      // Reads from data chan sends JSON data across the wire to the server
+	FetchData()     // Runs goroutine to pull data from the server connection
 	QueueData(*protocol.TransportMessage)
 
 	// HTTP Methods
@@ -65,16 +66,19 @@ func (ws *WsBackendClient) StartAuth(u string) tea.Msg {
 		slog.Error("Url parsing failed", "url", u, "error", err)
 	}
 	ws.serverUrl = sUrl
+	ws.serverUrl.Path = "/"
+	ws.serverUrl.Scheme = "http"
 
 	endpoint := "auth"
-	fullURL, err := url.JoinPath(ws.serverUrl.RawPath, endpoint)
+	fullURL := ws.serverUrl.JoinPath(endpoint)
 	if err != nil {
 		slog.Debug("error creating url path", "error", err)
 		return fmt.Errorf("")
 	}
+	slog.Info("Attmepting to connect to fullUrl", "url", fullURL.String(), "serverUrl", ws.serverUrl, "endpoint", endpoint)
 
 	client := &http.Client{Timeout: 20 * time.Second}
-	req, err := http.NewRequest("GET", fullURL, nil)
+	req, err := http.NewRequest("GET", fullURL.String(), nil)
 	if err != nil {
 		slog.Debug("error sending request", "error", err)
 	}
@@ -101,6 +105,8 @@ func (ws *WsBackendClient) StartAuth(u string) tea.Msg {
 	if err != nil {
 		slog.Error("error loading json", "error", err)
 	}
+
+	ws.sessionId = data.SessionId
 	return AuthLoginMsg{
 		UserCode:  data.UserCode,
 		Url:       "https://github.com/device/login",
@@ -109,7 +115,7 @@ func (ws *WsBackendClient) StartAuth(u string) tea.Msg {
 }
 
 func (ws *WsBackendClient) PollAuth() tea.Msg {
-	fullURL, err := url.JoinPath(ws.serverUrl.RawPath, "auth", "status")
+	fullURL, err := url.JoinPath(ws.serverUrl.String(), "auth", "status")
 	if err != nil {
 		slog.Debug("error creating url path", "error", err)
 		return fmt.Errorf("")
@@ -118,12 +124,14 @@ func (ws *WsBackendClient) PollAuth() tea.Msg {
 	client := &http.Client{Timeout: 20 * time.Second}
 	for range ticker.C {
 
+		slog.Info("Full url", "url", fullURL)
 		req, err := http.NewRequest("GET", fullURL, nil)
 		if err != nil {
 			slog.Debug("error sending request", "error", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
+		req.Header.Set("X-Session-Id", ws.sessionId)
 		q := req.URL.Query()
 		q.Add("id", ws.sessionId)
 		req.URL.RawQuery = q.Encode()
@@ -137,6 +145,7 @@ func (ws *WsBackendClient) PollAuth() tea.Msg {
 		if err != nil {
 			fmt.Printf("Error reading response body: %s\n", err)
 		}
+		slog.Info("Reading poll auth:", "body", body)
 
 		var data struct {
 			Authenticated string `json:"authenticated"`
@@ -170,7 +179,7 @@ func (ws *WsBackendClient) Stop() {
 }
 
 func (ws *WsBackendClient) Connect() error {
-	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/"}
+	u := url.URL{Scheme: "ws", Host: ws.serverUrl.Host, Path: "/"}
 	q := u.Query()
 	q.Set("session", ws.sessionId)
 	u.RawQuery = q.Encode()
@@ -187,6 +196,7 @@ func (ws *WsBackendClient) Connect() error {
 }
 
 func (ws *WsBackendClient) SendData() {
+	slog.Info("WRITING DATA TO BACKEND")
 	for msg := range ws.data {
 		ws.mut.Lock()
 		err := ws.conn.WriteJSON(msg)

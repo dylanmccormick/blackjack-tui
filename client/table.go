@@ -31,7 +31,7 @@ func NewTable() *TuiTable {
 	betText.Placeholder = "5"
 	betText.Width = 5
 	return &TuiTable{
-		Players: []TuiPlayer{{}, {}, {}, {}, {}, {}},
+		Players: []TuiPlayer{{Name: "dealer", Cards: []*Card{}}, {}, {}, {}, {}, {}},
 		Commands: map[string]string{
 			"n": "start game",
 			"b": "place bet",

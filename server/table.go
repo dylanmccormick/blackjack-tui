@@ -252,7 +252,7 @@ func (t *Table) RegisterClient(client *Client) {
 	playerReconnecting := t.game.GetPlayer(client.id) != nil
 	if !playerReconnecting {
 		p := game.NewPlayer(client.id)
-		p.Name = "lugubrious_bagel"
+		p.Name = client.username
 		t.game.AddPlayer(p)
 	}
 	t.clients[client] = true
