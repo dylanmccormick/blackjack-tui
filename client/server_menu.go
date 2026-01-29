@@ -32,7 +32,8 @@ func NewServerMenu() *ServerMenuModel {
 			"esc":   "back",
 			"n":     "new server",
 		},
-		loginMenu: &LoginMenu{userCodePage, "", ""},
+		loginMenu:    &LoginMenu{userCodePage, "", ""},
+		savedServers: []string{"http://blackjack.dylanjmccormick.com"},
 	}
 }
 
@@ -124,5 +125,3 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return sm, tea.Batch(cmds...)
 }
-
-

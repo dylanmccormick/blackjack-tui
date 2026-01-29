@@ -23,10 +23,10 @@ To run the server you can run the command:
 the -f flag will set the mode for your command to determine whether to run the client or the server.
 
 To run the client TUI:
-`DEBUG=1 go run . -f=tui`
+`go run . -f=tui`
 
 To run the client in mock mode:
-`DEBUG=1 go run . -f=tui --mock`
+`go run . -f=tui --mock`
 
 For now, you need to set the debug mode to true or the log statements will mess up your client
 
