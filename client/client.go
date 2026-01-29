@@ -170,6 +170,7 @@ type TuiPlayer struct {
 	Value  int
 	Wallet int
 	Bet    int
+	Current bool
 }
 
 func RunTui(mock *bool) {

@@ -424,8 +424,8 @@ func TestHitUntilStay(t *testing.T) {
 	for range 8 {
 		err = g.Hit(p1) // This should bust.
 		genericErrHelper(t, err)
-		if p1.State != WAITING_FOR_ACTION {
-			t.Fatalf("player state incorrectly advanced after hitting. expected=%s got=%s", WAITING_FOR_ACTION, p1.State)
+		if p1.State != PLAYING_TURN {
+			t.Fatalf("player state incorrectly advanced after hitting. expected=%s got=%s", PLAYING_TURN, p1.State)
 		}
 		if g.State != PLAYER_TURN {
 			t.Fatalf("incorrect state during player turn. expected=%s got=%s", PLAYER_TURN, g.State)

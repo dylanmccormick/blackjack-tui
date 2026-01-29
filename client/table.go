@@ -64,6 +64,7 @@ func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
 		player.Bet = receivedPlayer.Bet
 		player.Wallet = receivedPlayer.Wallet
 		player.Name = receivedPlayer.Name
+		player.Current = receivedPlayer.CurrentPlayer
 		log.Printf("Adding player %s to board", player.Name)
 		t.Players[i] = player
 	}
@@ -184,10 +185,14 @@ func (t *TuiTable) renderVerticalZone3() string {
 }
 
 func (p *TuiPlayer) renderPlayerZone() string {
+	currPlayer := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
 	if p.Name == "" { // we have an empty slot
 		return renderEmptyPlayer()
 	}
 	nameTag := p.Name
+	if p.Current {
+		nameTag = currPlayer.Render(p.Name)
+	}
 	bet := p.Bet
 	wallet := p.Wallet
 	valueStr := fmt.Sprintf("%d", (p.Value))

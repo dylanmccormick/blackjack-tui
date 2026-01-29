@@ -120,7 +120,7 @@ func (ws *WsBackendClient) PollAuth() tea.Msg {
 		slog.Debug("error creating url path", "error", err)
 		return fmt.Errorf("")
 	}
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	client := &http.Client{Timeout: 20 * time.Second}
 	for range ticker.C {
 

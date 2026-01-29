@@ -144,6 +144,7 @@ func (g *Game) StartPlayerTurn() error {
 	}
 	g.State = PLAYER_TURN
 	p := g.CurrentPlayer()
+	g.CurrentPlayer().State = PLAYING_TURN
 	if !p.DisconnectedAt.IsZero() {
 		// automatic stay if player is disconnected.
 		// INACTIVE should already be set
@@ -180,7 +181,7 @@ func (g *Game) DealCards() error {
 	g.activePlayers = g.ActivePlayers()
 	for _, player := range g.activePlayers {
 		player.Hand = NewHand()
-		player.State = WAITING_FOR_ACTION
+		player.State = WAITING_FOR_TURN
 	}
 	// Deal Player Cards
 	for range 2 {
@@ -247,7 +248,10 @@ func (g *Game) endPlayerTurn(p *Player) error {
 	}
 	if !g.NextPlayer() {
 		slog.Info("Starting dealer turn")
+		g.CurrentPlayerIndex = 0
 		g.StartDealerTurn()
+	} else {
+		g.CurrentPlayer().State = PLAYING_TURN
 	}
 	return nil
 }

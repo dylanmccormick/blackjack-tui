@@ -38,7 +38,8 @@ func NewPlayer(id uuid.UUID) *Player {
 const (
 	BETTING PlayerState = iota
 	BETS_MADE
-	WAITING_FOR_ACTION
+	WAITING_FOR_TURN
+	PLAYING_TURN
 	DONE
 	INACTIVE
 )
@@ -49,8 +50,10 @@ func (ps PlayerState) String() string {
 		return "BETTING"
 	case BETS_MADE:
 		return "BETS_MADE"
-	case WAITING_FOR_ACTION:
-		return "WAITING_FOR_ACTION"
+	case WAITING_FOR_TURN:
+		return "WAITING_FOR_TURN"
+	case PLAYING_TURN:
+		return "PLAYING_TURN"
 	case DONE:
 		return "DONE"
 	case INACTIVE:

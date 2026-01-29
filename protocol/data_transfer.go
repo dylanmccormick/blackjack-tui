@@ -1,6 +1,8 @@
 package protocol
 
 import (
+	"log/slog"
+
 	"github.com/dylanmccormick/blackjack-tui/game"
 )
 
@@ -16,10 +18,11 @@ type CardDTO struct {
 }
 
 type PlayerDTO struct {
-	Bet    int     `json:"bet"`
-	Wallet int     `json:"wallet"`
-	Hand   HandDTO `json:"hand"`
-	Name   string  `json:"name"`
+	Bet           int     `json:"bet"`
+	Wallet        int     `json:"wallet"`
+	Hand          HandDTO `json:"hand"`
+	Name          string  `json:"name"`
+	CurrentPlayer bool    `json:"current"`
 }
 
 type GameDTO struct {
@@ -53,11 +56,14 @@ func HandToDTO(h *game.Hand) HandDTO {
 }
 
 func PlayerToDTO(p *game.Player) PlayerDTO {
+	slog.Info("translating player", "player", p)
+	slog.Info("Current player?", "val", p.State == game.PLAYING_TURN)
 	return PlayerDTO{
-		Bet:    p.Bet,
-		Wallet: p.Wallet,
-		Hand:   HandToDTO(p.Hand),
-		Name:   p.Name,
+		Bet:           p.Bet,
+		Wallet:        p.Wallet,
+		Hand:          HandToDTO(p.Hand),
+		Name:          p.Name,
+		CurrentPlayer: (p.State == game.PLAYING_TURN),
 	}
 }
 
