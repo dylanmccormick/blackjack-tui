@@ -101,30 +101,3 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return mm, tea.Batch(cmds...)
 }
 
-func SendData(msg *protocol.TransportMessage) tea.Cmd {
-	return func() tea.Msg {
-		return SendMsg{msg}
-	}
-}
-
-type SendMsg struct {
-	data *protocol.TransportMessage
-}
-
-type ChangeMenuPage struct {
-	page mPage
-}
-
-func ChangeMenuPageCmd(p mPage) tea.Cmd {
-	return func() tea.Msg {
-		return ChangeMenuPage{p}
-	}
-}
-
-type TextFocusMsg struct{}
-
-func TextFocusCmd() tea.Cmd {
-	return func() tea.Msg {
-		return TextFocusMsg{}
-	}
-}

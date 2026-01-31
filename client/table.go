@@ -17,6 +17,7 @@ type TuiTable struct {
 	Commands   map[string]string
 	betInput   textinput.Model
 	commandSet bool
+	username   string
 }
 
 var GAME_COMMANDS = map[string]string{
@@ -87,6 +88,8 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		t.commandSet = true
 	}
 	switch msg := msg.(type) {
+	case AuthPollMsg:
+		t.username = msg.UserName
 	case TextFocusMsg:
 		t.betInput.Focus()
 	case *protocol.GameDTO:
@@ -135,13 +138,6 @@ func (t *TuiTable) View() string {
 	return style.Render(t.renderMiddle())
 }
 
-func SaveBetCmd() tea.Cmd {
-	return func() tea.Msg {
-		return SaveBetMsg{}
-	}
-}
-
-type SaveBetMsg struct{}
 
 func (t *TuiTable) renderMiddle() string {
 	vzone1 := t.renderVerticalZone1()
@@ -153,8 +149,8 @@ func (t *TuiTable) renderMiddle() string {
 func (t *TuiTable) renderVerticalZone1() string {
 	p4Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4).Foreground(lipgloss.Color(foreground))
 	p5Style := lipgloss.NewStyle().PaddingTop(2).PaddingLeft(3).PaddingRight(4).PaddingBottom(5).Foreground(lipgloss.Color(foreground))
-	playerFive := p4Style.Render(t.Players[5].renderPlayerZone())
-	playerFour := p5Style.Render(t.Players[4].renderPlayerZone())
+	playerFive := p4Style.Render(t.Players[5].renderPlayerZone(t.username))
+	playerFour := p5Style.Render(t.Players[4].renderPlayerZone(t.username))
 	return lipgloss.JoinVertical(lipgloss.Top, playerFive, playerFour)
 }
 
@@ -170,22 +166,23 @@ func (t *TuiTable) renderVerticalZone2() string {
 	dealerStyle := lipgloss.NewStyle().PaddingRight(4).PaddingTop(1).PaddingBottom(1).Foreground(lipgloss.Color(foreground))
 	betStyle := lipgloss.NewStyle().Height(2).Foreground(lipgloss.Color(highlight)).Align(lipgloss.Center, lipgloss.Center)
 	p3Style := lipgloss.NewStyle().PaddingTop(3).PaddingRight(4).PaddingBottom(2).Foreground(lipgloss.Color(foreground))
-	dealer := dealerStyle.Render(t.Players[0].renderPlayerZone())
+	dealer := dealerStyle.Render(t.Players[0].renderPlayerZone(t.username))
 	betDialogue := betStyle.Render(t.renderBetDialogue())
-	player3 := p3Style.Render(t.Players[3].renderPlayerZone())
+	player3 := p3Style.Render(t.Players[3].renderPlayerZone(t.username))
 	return lipgloss.JoinVertical(lipgloss.Top, dealer, betDialogue, player3)
 }
 
 func (t *TuiTable) renderVerticalZone3() string {
 	p1Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2).Foreground(lipgloss.Color(foreground))
 	p2Style := lipgloss.NewStyle().PaddingRight(4).PaddingTop(2).PaddingBottom(5).Foreground(lipgloss.Color(foreground))
-	playerTwo := p2Style.Render(t.Players[2].renderPlayerZone())
-	playerOne := p1Style.Render(t.Players[1].renderPlayerZone())
+	playerTwo := p2Style.Render(t.Players[2].renderPlayerZone(t.username))
+	playerOne := p1Style.Render(t.Players[1].renderPlayerZone(t.username))
 	return lipgloss.JoinVertical(lipgloss.Top, playerOne, playerTwo)
 }
 
-func (p *TuiPlayer) renderPlayerZone() string {
+func (p *TuiPlayer) renderPlayerZone(username string) string {
 	currPlayer := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
+	myPlayer := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
 	if p.Name == "" { // we have an empty slot
 		return renderEmptyPlayer()
 	}
@@ -200,6 +197,9 @@ func (p *TuiPlayer) renderPlayerZone() string {
 		valueStr = "?"
 	}
 	status := fmt.Sprintf("V:%s B:%d W:%d", valueStr, bet, wallet)
+	if p.Name == username {
+		status = myPlayer.Render(status)
+	}
 	return lipgloss.Place(16, 5, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Top, nameTag, renderMultipleCards(p.Cards, 16, 6), status))
 }
 

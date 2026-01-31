@@ -68,36 +68,36 @@ func (c *Card) ViewPartial() string {
 	color := lipgloss.Color("#FFFFFF")
 	style := lipgloss.NewStyle().Foreground(color)
 	padding := strings.Repeat(cardHor, 2)
-	view := style.Render(cardTL) + c.String() + "\n"
+	var view strings.Builder; view.WriteString(style.Render(cardTL) + c.String() + "\n")
 	for i := 1; i < Height-1; i++ {
-		view += style.Render(cardVer+strings.Repeat(" ", 2)) + "\n"
+		view.WriteString(style.Render(cardVer+strings.Repeat(" ", 2)) + "\n")
 	}
-	view += style.Render("╰" + padding)
-	return view
+	view.WriteString(style.Render("╰" + padding))
+	return view.String()
 }
 
 func (c *Card) View() string {
 	color := lipgloss.Color("#FFFFFF")
 	style := lipgloss.NewStyle().Foreground(color)
 	padding := strings.Repeat(cardHor, Width-2-lipgloss.Width(c.String()))
-	view := style.Render(cardTL) + c.String() + style.Render(padding+cardTR) + "\n"
+	var view strings.Builder; view.WriteString(style.Render(cardTL) + c.String() + style.Render(padding+cardTR) + "\n")
 	for i := 1; i < Height-1; i++ {
-		view += style.Render(cardVer+strings.Repeat(" ", Width-2)+cardVer) + "\n"
+		view.WriteString(style.Render(cardVer+strings.Repeat(" ", Width-2)+cardVer) + "\n")
 	}
-	view += style.Render(cardBL+padding) + c.String() + style.Render(cardBR)
-	return view
+	view.WriteString(style.Render(cardBL+padding) + c.String() + style.Render(cardBR))
+	return view.String()
 }
 
 func hiddenCardView() string {
 	color := lipgloss.Color("#FFFFFF")
 	style := lipgloss.NewStyle().Foreground(color)
 	padding := strings.Repeat(cardHor, Width-2)
-	view := style.Render("╭") + style.Render(padding+"╮") + "\n"
+	var view strings.Builder; view.WriteString(style.Render("╭") + style.Render(padding+"╮") + "\n")
 	for i := 1; i < Height-1; i++ {
-		view += style.Render(cardVer+strings.Repeat(" ", Width-2)+cardVer) + "\n"
+		view.WriteString(style.Render(cardVer+strings.Repeat(" ", Width-2)+cardVer) + "\n")
 	}
-	view += style.Render("╰"+padding) + style.Render("╯")
-	return view
+	view.WriteString(style.Render("╰"+padding) + style.Render("╯"))
+	return view.String()
 }
 
 func renderMultipleCards(cards []*Card, w, h int) string {

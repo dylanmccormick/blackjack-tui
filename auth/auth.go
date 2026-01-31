@@ -58,7 +58,7 @@ func HandleAuthCheck(sm *SessionManager, id string, w http.ResponseWriter, r *ht
 		return false
 	}
 
-	data := map[string]string{"authenticated": fmt.Sprintf("%v", session.Authenticated)}
+	data := map[string]string{"authenticated": fmt.Sprintf("%v", session.Authenticated), "username": session.GithubUserId}
 	err = WriteHttpResponse(w, 200, data)
 	if err != nil {
 		slog.Error("Error in HandleAuthCheck", "error", err)

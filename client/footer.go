@@ -22,10 +22,6 @@ func NewFooter() *Footer {
 	}
 }
 
-type AddCommandsMsg struct {
-	commands map[string]string
-}
-
 func (f *Footer) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case AddCommandsMsg:
@@ -48,8 +44,3 @@ func (f *Footer) Init() tea.Cmd {
 	return nil
 }
 
-func AddCommands(cmds map[string]string) tea.Cmd {
-	return func() tea.Msg {
-		return AddCommandsMsg{cmds}
-	}
-}

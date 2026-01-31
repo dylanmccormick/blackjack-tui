@@ -73,12 +73,3 @@ func (lm *LoginMenu) Init() tea.Cmd {
 	return nil
 }
 
-type LoginRequested struct {
-	Url string
-}
-
-func RequestLogin(url string) tea.Cmd {
-	return func() tea.Msg {
-		return LoginRequested{url}
-	}
-}

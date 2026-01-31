@@ -149,6 +149,7 @@ func (ws *WsBackendClient) PollAuth() tea.Msg {
 
 		var data struct {
 			Authenticated string `json:"authenticated"`
+			Username      string `json:"username"`
 		}
 
 		err = json.Unmarshal(body, &data)
@@ -156,12 +157,12 @@ func (ws *WsBackendClient) PollAuth() tea.Msg {
 			slog.Error("error loading json", "error", err)
 		}
 
-		if data.Authenticated == "true" {
+		if data.Authenticated == "true" && data.Username != "" {
 			ticker.Stop()
-			return AuthPollMsg{true}
+			return AuthPollMsg{true, data.Username}
 		}
 	}
-	return AuthPollMsg{false}
+	return AuthPollMsg{false, ""}
 }
 
 // this seems like a bad thing to do, but I'm not sure how else to interact with an interface
@@ -243,7 +244,7 @@ func (m *MockBackendClient) QueueData(data *protocol.TransportMessage) {
 }
 
 func (m *MockBackendClient) PollAuth() tea.Msg {
-	return AuthPollMsg{true}
+	return AuthPollMsg{true, "l_bagel"}
 }
 
 func (m *MockBackendClient) StartAuth(_ string) tea.Msg {
