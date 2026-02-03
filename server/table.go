@@ -9,6 +9,8 @@ import (
 
 	"github.com/dylanmccormick/blackjack-tui/game"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
+	"github.com/dylanmccormick/blackjack-tui/store"
+	"github.com/google/uuid"
 )
 
 const (
@@ -38,6 +40,7 @@ type Table struct {
 	tableTimer  *time.Timer
 
 	log *slog.Logger
+	db  store.Store
 }
 
 func newTable(name string, lobby *Lobby) *Table {
@@ -54,6 +57,7 @@ func newTable(name string, lobby *Lobby) *Table {
 		tableTimer:     time.NewTimer(TABLE_TIMEOUT),
 		lobby:          lobby,
 		log:            slog.With("component", "table"),
+		db:             store.Store{},
 	}
 	t.log = t.log.With("table_id", t.id)
 	t.betTimer.Stop()
@@ -208,13 +212,36 @@ OuterLoop:
 			t.game.PlayDealer()
 		case game.RESOLVING_BETS:
 			t.log.Debug("RESOLVING BETS")
-			t.game.ResolveBets()
+			pmap, err := t.game.ResolveBets()
+			if err != nil {
+				slog.Error("Error in autoprogress. Unable to resolve bets", "error", err)
+			}
+			t.StoreGameData(pmap)
 			t.betTimer.Reset(ACTION_TIMEOUT)
 		default:
 			t.broadcastGameState()
 			break OuterLoop
 		}
 		t.broadcastGameState()
+	}
+}
+
+func (t *Table) StoreGameData(results map[uuid.UUID]store.RoundResult) {
+	tempMap := map[uuid.UUID]*Client{}
+	for client := range t.clients {
+		tempMap[client.id] = client
+	}
+
+	for playerId, result := range results {
+		client, ok := tempMap[playerId]
+		if !ok {
+			slog.Error("player id not found in table clients", "id", playerId)
+		}
+		githubId := client.username
+		err := t.db.RecordResult(context.TODO(), githubId, result)
+		if err != nil {
+			slog.Error("Unable to record results to db", "username", githubId, "result", result)
+		}
 	}
 }
 

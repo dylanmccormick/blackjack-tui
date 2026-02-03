@@ -6,6 +6,7 @@ import (
 	"math"
 	"slices"
 
+	"github.com/dylanmccormick/blackjack-tui/store"
 	"github.com/google/uuid"
 )
 
@@ -256,17 +257,34 @@ func (g *Game) endPlayerTurn(p *Player) error {
 	return nil
 }
 
-func (g *Game) ResolveBets() error {
+func (g *Game) ResolveBets() (map[uuid.UUID]store.RoundResult, error) {
+	retMap := map[uuid.UUID]store.RoundResult{}
 	err := g.checkState(RESOLVING_BETS, "ResolveBets")
 	if err != nil {
-		return err
+		return retMap, err
 	}
 	for _, player := range g.activePlayers {
 		winAmt := g.calculatePayout(player)
 		player.Wallet += winAmt
+		retMap[player.ID] = store.RoundResult{
+			Outcome:     getOutcome(player.Bet, winAmt),
+			Blackjack:   (player.Hand.GetState() == BLACKJACK),
+			Bet:         player.Bet,
+			WalletDelta: winAmt - player.Bet,
+		}
 	}
 	g.reset()
-	return g.EndRound()
+	return retMap, g.EndRound()
+}
+
+func getOutcome(bet, winAmt int) store.WonState {
+	if winAmt == 0 {
+		return store.Lost
+	}
+	if winAmt == bet {
+		return store.Tied
+	}
+	return store.Won
 }
 
 func (g *Game) reset() {
