@@ -10,12 +10,21 @@ type (
 		Type string          `json:"type"`
 		Data json.RawMessage `json:"data,omitempty"`
 	}
+
+	PopUpType string
+)
+
+const (
+	InfoMsg PopUpType = "info"
+	ErrMsg  PopUpType = "error"
+	WarnMsg PopUpType = "warn"
 )
 
 const (
 	// server to client
 	MsgGameState = "game_state"
 	MsgTableList = "table_list"
+	MsgPopUp     = "pop_up"
 
 	// client to server
 	MsgPlaceBet    = "place_bet"
@@ -50,6 +59,8 @@ func PackageMessage(dto any) (*TransportMessage, error) {
 		message.Type = MsgGameState
 	case []TableDTO:
 		message.Type = MsgTableList
+	case PopUpDTO:
+		message.Type = MsgPopUp
 	}
 
 	return &message, nil

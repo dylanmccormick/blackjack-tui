@@ -12,8 +12,9 @@ CREATE TABLE users (
 	hands_lost INT NOT NULL DEFAULT 0,
 	github_starred BOOL NOT NULL DEFAULT FALSE,
 	last_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	login_streak INT NOT NULL DEFAULT 0
+	login_streak INT NOT NULL DEFAULT 0,
+	blackjacks INT not NULL DEFAULT 0
 );
 
 -- +goose Down
-DROP TABLE users
+DROP TABLE IF EXISTS users;

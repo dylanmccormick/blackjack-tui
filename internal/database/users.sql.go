@@ -13,7 +13,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users(github_id, created_at, updated_at, last_login)
 VALUES (?, ?, ?, ?)
-RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak
+RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak, blackjacks
 `
 
 type CreateUserParams struct {
@@ -45,12 +45,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.GithubStarred,
 		&i.LastLogin,
 		&i.LoginStreak,
+		&i.Blackjacks,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-select github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak
+select github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak, blackjacks
 from users
 where github_id = ?
 `
@@ -72,6 +73,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, githubID string) (User,
 		&i.GithubStarred,
 		&i.LastLogin,
 		&i.LoginStreak,
+		&i.Blackjacks,
 	)
 	return i, err
 }
@@ -82,7 +84,7 @@ UPDATE users
 SET updated_at = CURRENT_TIMESTAMP,
 github_starred = ?
 WHERE github_id = ?
-RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak
+RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak, blackjacks
 `
 
 type UpdateGithubStarredParams struct {
@@ -107,6 +109,7 @@ func (q *Queries) UpdateGithubStarred(ctx context.Context, arg UpdateGithubStarr
 		&i.GithubStarred,
 		&i.LastLogin,
 		&i.LoginStreak,
+		&i.Blackjacks,
 	)
 	return i, err
 }
@@ -119,7 +122,7 @@ SET updated_at = CURRENT_TIMESTAMP,
 last_login = CURRENT_TIMESTAMP,
 login_streak = ?
 WHERE github_id = ?
-RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak
+RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak, blackjacks
 `
 
 type UpdateLoginStreakParams struct {
@@ -144,6 +147,45 @@ func (q *Queries) UpdateLoginStreak(ctx context.Context, arg UpdateLoginStreakPa
 		&i.GithubStarred,
 		&i.LastLogin,
 		&i.LoginStreak,
+		&i.Blackjacks,
+	)
+	return i, err
+}
+
+const updateUserAddIncome = `-- name: UpdateUserAddIncome :one
+;
+
+UPDATE users
+SET updated_at = CURRENT_TIMESTAMP,
+last_login = CURRENT_TIMESTAMP,
+wallet = wallet + ?
+WHERE github_id = ?
+RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak, blackjacks
+`
+
+type UpdateUserAddIncomeParams struct {
+	Wallet   int64
+	GithubID string
+}
+
+func (q *Queries) UpdateUserAddIncome(ctx context.Context, arg UpdateUserAddIncomeParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserAddIncome, arg.Wallet, arg.GithubID)
+	var i User
+	err := row.Scan(
+		&i.GithubID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Wallet,
+		&i.AmountBetLifetime,
+		&i.AmountWonLifetime,
+		&i.AmountLostLifetime,
+		&i.HandsPlayed,
+		&i.HandsWon,
+		&i.HandsLost,
+		&i.GithubStarred,
+		&i.LastLogin,
+		&i.LoginStreak,
+		&i.Blackjacks,
 	)
 	return i, err
 }
@@ -159,9 +201,10 @@ amount_won_lifetime = amount_won_lifetime + ?,
 amount_lost_lifetime = amount_lost_lifetime + ?,
 hands_played = hands_played + 1,
 hands_won = hands_won + ?,
-hands_lost = hands_lost + ?
+hands_lost = hands_lost + ?,
+blackjacks = blackjacks + ?
 WHERE github_id = ?
-RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak
+RETURNING github_id, created_at, updated_at, wallet, amount_bet_lifetime, amount_won_lifetime, amount_lost_lifetime, hands_played, hands_won, hands_lost, github_starred, last_login, login_streak, blackjacks
 `
 
 type UpdateUserStatsParams struct {
@@ -171,6 +214,7 @@ type UpdateUserStatsParams struct {
 	AmountLostLifetime int64
 	HandsWon           int64
 	HandsLost          int64
+	Blackjacks         int64
 	GithubID           string
 }
 
@@ -182,6 +226,7 @@ func (q *Queries) UpdateUserStats(ctx context.Context, arg UpdateUserStatsParams
 		arg.AmountLostLifetime,
 		arg.HandsWon,
 		arg.HandsLost,
+		arg.Blackjacks,
 		arg.GithubID,
 	)
 	var i User
@@ -199,6 +244,7 @@ func (q *Queries) UpdateUserStats(ctx context.Context, arg UpdateUserStatsParams
 		&i.GithubStarred,
 		&i.LastLogin,
 		&i.LoginStreak,
+		&i.Blackjacks,
 	)
 	return i, err
 }

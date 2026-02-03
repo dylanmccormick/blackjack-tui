@@ -130,6 +130,37 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 	return auth, nil
 }
 
+func (sm *SessionManager) CheckStarredStatus(context context.Context, s *Session) (bool, error) {
+	client := &http.Client{Timeout: 20 * time.Second}
+
+	slog.Info("Bearer token", "token", s.githubToken)
+
+	url := "https://api.github.com/user/starred/dylanmccormick/blackjack-tui"
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Set("Content-Type", "application/vnd.github+json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.githubToken)
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Error("Error sending request: %s\n", "error", err)
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("Error reading response body: %s\n", "error", err)
+		return false, err
+	}
+	slog.Info("Response", "body", string(body))
+
+	if resp.StatusCode == 204 {
+		return true, nil
+	}
+	return false, nil
+}
+
 func (sm *SessionManager) UpdateUsername(ctx context.Context, s *Session) error {
 	client := &http.Client{Timeout: 20 * time.Second}
 

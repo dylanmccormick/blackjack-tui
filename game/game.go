@@ -270,6 +270,7 @@ func (g *Game) ResolveBets() (map[uuid.UUID]store.RoundResult, error) {
 			Outcome:     getOutcome(player.Bet, winAmt),
 			Blackjack:   (player.Hand.GetState() == BLACKJACK),
 			Bet:         player.Bet,
+			Wallet:      player.Wallet,
 			WalletDelta: winAmt - player.Bet,
 		}
 	}

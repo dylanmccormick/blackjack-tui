@@ -33,3 +33,4 @@ go.work.sum
 
 *.log
 blackjack-tui
+blackjack-db

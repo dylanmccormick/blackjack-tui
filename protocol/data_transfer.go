@@ -36,6 +36,11 @@ type TableDTO struct {
 	CurrentPlayers int
 }
 
+type PopUpDTO struct {
+	Message string `json:"message"`
+	Type    string `json:"type"`
+}
+
 func CardToDTO(c game.Card) CardDTO {
 	return CardDTO{
 		Suit: string(c.Suit),
@@ -90,4 +95,11 @@ func DealerToDTO(state game.GameState, h *game.Hand) HandDTO {
 		hand.Value = -1
 	}
 	return hand
+}
+
+func MessageToDTO(message string, lvl PopUpType) PopUpDTO {
+	return PopUpDTO{
+		Message: message,
+		Type: string(lvl),
+	}
 }

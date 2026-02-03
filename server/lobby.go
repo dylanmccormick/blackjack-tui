@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
+	"github.com/dylanmccormick/blackjack-tui/store"
 )
 
 // The lobby will be the landing zone for any new connections to the game.
@@ -21,9 +22,10 @@ type Lobby struct {
 	tables         map[string]*Table
 	tableWg        sync.WaitGroup
 	log            *slog.Logger
+	store          *store.Store
 }
 
-func newLobby() *Lobby {
+func newLobby(store *store.Store) *Lobby {
 	return &Lobby{
 		clients:        make(map[*Client]bool),
 		registerChan:   make(chan *Client),
@@ -32,6 +34,7 @@ func newLobby() *Lobby {
 		outbound:       make(chan []byte),
 		tables:         make(map[string]*Table),
 		log:            slog.With("component", "lobby"),
+		store:          store,
 	}
 }
 
@@ -130,7 +133,7 @@ func (l *Lobby) createTable(ctx context.Context, name string) {
 		l.log.Warn("Table name already exists... not creating new table")
 		return
 	}
-	t := newTable(name, l)
+	t := newTable(name, l, l.store)
 	tableCtx, tableCancel := context.WithCancel(ctx)
 	t.cancel = tableCancel
 	l.tables[name] = t

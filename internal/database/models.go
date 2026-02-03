@@ -22,4 +22,5 @@ type User struct {
 	GithubStarred      bool
 	LastLogin          time.Time
 	LoginStreak        int64
+	Blackjacks         int64
 }

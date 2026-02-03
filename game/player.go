@@ -24,13 +24,13 @@ type Player struct {
 	IntentionalDisconnect bool
 }
 
-func NewPlayer(id uuid.UUID) *Player {
+func NewPlayer(id uuid.UUID, wallet int) *Player {
 	slog.Debug("Creating new player")
 	return &Player{
 		ID:     id,
 		Hand:   &Hand{},
 		Bet:    0,
-		Wallet: 100,
+		Wallet: wallet,
 		Name:   "placeholder",
 	}
 }

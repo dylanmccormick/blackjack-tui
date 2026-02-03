@@ -40,10 +40,10 @@ type Table struct {
 	tableTimer  *time.Timer
 
 	log *slog.Logger
-	db  store.Store
+	db  *store.Store
 }
 
-func newTable(name string, lobby *Lobby) *Table {
+func newTable(name string, lobby *Lobby, store *store.Store) *Table {
 	t := &Table{
 		clients:        make(map[*Client]bool),
 		registerChan:   make(chan *Client),
@@ -57,7 +57,7 @@ func newTable(name string, lobby *Lobby) *Table {
 		tableTimer:     time.NewTimer(TABLE_TIMEOUT),
 		lobby:          lobby,
 		log:            slog.With("component", "table"),
-		db:             store.Store{},
+		db:             store,
 	}
 	t.log = t.log.With("table_id", t.id)
 	t.betTimer.Stop()
@@ -227,6 +227,7 @@ OuterLoop:
 }
 
 func (t *Table) StoreGameData(results map[uuid.UUID]store.RoundResult) {
+	slog.Info("STORING GAME DATA")
 	tempMap := map[uuid.UUID]*Client{}
 	for client := range t.clients {
 		tempMap[client.id] = client
@@ -278,7 +279,12 @@ func (t *Table) RegisterClient(client *Client) {
 	t.log.Info("attempting to register client", "client", client.id)
 	playerReconnecting := t.game.GetPlayer(client.id) != nil
 	if !playerReconnecting {
-		p := game.NewPlayer(client.id)
+		user, err := t.db.GetOrCreateUser(client.username)
+		if err != nil {
+			slog.Error("error getting user", "username", client.username)
+			// probably should crash here?
+		}
+		p := game.NewPlayer(client.id, int(user.Wallet))
 		p.Name = client.username
 		t.game.AddPlayer(p)
 	}

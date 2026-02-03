@@ -18,7 +18,8 @@ amount_won_lifetime = amount_won_lifetime + ?,
 amount_lost_lifetime = amount_lost_lifetime + ?,
 hands_played = hands_played + 1,
 hands_won = hands_won + ?,
-hands_lost = hands_lost + ?
+hands_lost = hands_lost + ?,
+blackjacks = blackjacks + ?
 WHERE github_id = ?
 RETURNING *
 ;
@@ -35,6 +36,15 @@ UPDATE users
 SET updated_at = CURRENT_TIMESTAMP,
 last_login = CURRENT_TIMESTAMP,
 login_streak = ?
+WHERE github_id = ?
+RETURNING *
+;
+
+-- name: UpdateUserAddIncome :one
+UPDATE users
+SET updated_at = CURRENT_TIMESTAMP,
+last_login = CURRENT_TIMESTAMP,
+wallet = wallet + ?
 WHERE github_id = ?
 RETURNING *
 ;

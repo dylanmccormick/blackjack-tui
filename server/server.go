@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/dylanmccormick/blackjack-tui/auth"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
+	"github.com/dylanmccormick/blackjack-tui/store"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -61,13 +63,19 @@ func RunServer() {
 	slog.SetDefault(logger)
 	serverLog = slog.With("component", "server")
 
+	store, err := store.NewStore("blackjack-db")
+	if err != nil {
+		slog.Error("Unable to load or create datastore", "error", err)
+		os.Exit(1)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// signal handler
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	lobby := newLobby()
+	lobby := newLobby(store)
 	sessionManager := auth.NewSessionManager()
 
 	var wg sync.WaitGroup
@@ -83,7 +91,7 @@ func RunServer() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		serverLog.Info("Received connection")
 		// todo... validate logged in
-		serveWs(sessionManager, lobby, w, r)
+		serveWs(sessionManager, lobby, w, r, store)
 	})
 
 	http.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +130,7 @@ func generateId(c *websocket.Conn) uuid.UUID {
 	return uuid
 }
 
-func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.Request) {
+func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.Request, store *store.Store) {
 	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
 	// CHECK SESSION MANAGER FOR KEY
 	sessionId := r.URL.Query().Get("session")
@@ -156,6 +164,42 @@ func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.R
 
 	go client.readPump()
 	go client.writePump()
+
+	u, income, err := store.ProcessLogin(context.TODO(), client.username)
+	if err != nil {
+		slog.Error("error processing login", "error", err)
+	}
+	slog.Info("User got that money!", "income", income)
+
+	msg := fmt.Sprintf("Thank you for logging in for %d day(s) in a row! You have earned %d income", u.LoginStreak, income)
+
+	pack, err := protocol.PackageMessage(protocol.MessageToDTO(msg, protocol.InfoMsg))
+	if err != nil {
+		slog.Error("Unable to process message", "error", err)
+	}
+
+	client.send <- pack
+
+	isStarred, err := sm.CheckStarredStatus(context.TODO(), session)
+	if err != nil {
+		slog.Error("error processing repo stars", "error", err)
+	}
+	if isStarred {
+		slog.Info("USER STARRED THE REPO!")
+	}
+
+	newStar, err := store.UpdateUserStarred(context.TODO(), client.username)
+	if newStar {
+		slog.Info("Thank you for the star kind user", "user", client.username)
+		msg = fmt.Sprintf("Thank you for starring the repo! You have earned %d bonus", 5000)
+
+		pack, err = protocol.PackageMessage(protocol.MessageToDTO(msg, protocol.InfoMsg))
+		if err != nil {
+			slog.Error("Unable to process message", "error", err)
+		}
+
+		client.send <- pack
+	}
 }
 
 func (c *Client) readPump() {
