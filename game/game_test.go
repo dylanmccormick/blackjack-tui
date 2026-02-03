@@ -281,7 +281,7 @@ func TestGameFlow(t *testing.T) {
 	genericErrHelper(t, err)
 	err = game.PlayDealer()
 	genericErrHelper(t, err)
-	err = game.ResolveBets()
+	_, err = game.ResolveBets()
 	genericErrHelper(t, err)
 	if game.State != WAITING_FOR_BETS {
 		t.Fatalf("Game in incorrect state. expected=%s got=%s", WAIT_FOR_START, game.State)

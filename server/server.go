@@ -63,7 +63,7 @@ func RunServer() {
 	slog.SetDefault(logger)
 	serverLog = slog.With("component", "server")
 
-	store, err := store.NewStore(os.Getenv("SQLITE_DB"))
+	store, err := store.NewStore(os.Getenv("SQLITE_DB"), "/sql/schema")
 	if err != nil {
 		slog.Error("Unable to load or create datastore", "error", err)
 		os.Exit(1)

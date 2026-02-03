@@ -5,11 +5,13 @@ import (
 	"testing"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
+	"github.com/dylanmccormick/blackjack-tui/store"
 	"github.com/google/uuid"
 )
 
 func TestCreateLobby(t *testing.T) {
-	lobby := newLobby()
+	store, _ := store.NewStore(":memory:", "../sql/schema")
+	lobby := newLobby(store)
 
 	if len(lobby.clients) != 0 {
 		t.Fatalf("No clients map created")
@@ -17,7 +19,8 @@ func TestCreateLobby(t *testing.T) {
 }
 
 func TestRegisterClient(t *testing.T) {
-	lobby := newLobby()
+	store, _ := store.NewStore(":memory:", "../sql/schema")
+	lobby := newLobby(store)
 	id, err := uuid.NewUUID()
 	if err != nil {
 		t.Fatalf("Unable to create UUID. err=%#v", err)
@@ -39,7 +42,8 @@ func TestRegisterClient(t *testing.T) {
 }
 
 func TestAddTable(t *testing.T) {
-	lobby := newLobby()
+	store, _ := store.NewStore(":memory:", "../sql/schema")
+	lobby := newLobby(store)
 	lobby.createTable(context.TODO(), "test_table")
 	if len(lobby.tables) != 1 {
 		t.Fatalf("expected lobby to have 1 table. got=%d", len(lobby.tables))
@@ -54,7 +58,8 @@ func TestListTable(t *testing.T) {
 	clients := clientHelper(2)
 	c0 := clients[0]
 	c1 := clients[1]
-	lobby := newLobby()
+	store := store.Store{}
+	lobby := newLobby(&store)
 	lobby.createTable(context.TODO(), "test")
 	lobby.RegisterClient(c0)
 	lobby.RegisterClient(c1)

@@ -11,15 +11,16 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func NewStore(dbPath string) (*Store, error) {
+func NewStore(dbPath, schemaLocation string,) (*Store, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return &Store{}, err
 	}
 
 	goose.SetDialect("sqlite3")
-	err = goose.Up(db, "sql/schema")
+	err = goose.Up(db, schemaLocation)
 	if err != nil {
+		slog.Error("Error running goose", "error", err)
 		return &Store{}, err
 	}
 	return &Store{database.New(db)}, nil
