@@ -1,6 +1,8 @@
 package client
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
@@ -41,6 +43,12 @@ func SendData(msg *protocol.TransportMessage) tea.Cmd {
 	}
 }
 
+func PopUpTimer() tea.Cmd {
+	return tea.Tick(15*time.Second, func(t time.Time) tea.Msg {
+		return PopUpRemoveMsg{}
+	})
+}
+
 type (
 	AddCommandsMsg struct {
 		commands map[string]string
@@ -55,7 +63,8 @@ type (
 	ChangeMenuPage struct {
 		page mPage
 	}
-	TextFocusMsg struct{}
+	TextFocusMsg   struct{}
+	PopUpRemoveMsg struct{}
 )
 
 func ChangeMenuPageCmd(p mPage) tea.Cmd {

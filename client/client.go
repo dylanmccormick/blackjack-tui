@@ -89,7 +89,6 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		rm.width = msg.Width
 		rm.height = msg.Height
-
 	case tea.KeyMsg:
 		// Top Level Keys. Kill the program type keys
 		switch msg.Type {
@@ -114,7 +113,9 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// header and footer always get updated since they don't handle keypresses
 	rm.footerModel, cmd = rm.footerModel.Update(msg)
+	cmds = append(cmds, cmd)
 	rm.headerModel, cmd = rm.headerModel.Update(msg)
+	cmds = append(cmds, cmd)
 	return rm, tea.Batch(append(cmds, ReceiveMessage(rm.wsMessages))...)
 }
 
@@ -123,10 +124,10 @@ func NewRootModel(tmio BackendClient) *RootModel {
 	return &RootModel{
 		transporter: tmio,
 		wsMessages:  wsChan,
-		table:       NewTable(),
+		table:       NewTable(20, 80),
 		menuModel:   NewMenuModel(),
 		loginModel:  &LoginModel{},
-		footerModel: NewFooter(),
+		footerModel: NewFooter(3, 78),
 		headerModel: NewHeader(),
 		state:       "menu",
 	}
@@ -206,7 +207,6 @@ func RunTui(mock *bool) {
 		os.Exit(1)
 	}
 }
-
 
 type AuthLoginMsg struct {
 	UserCode  string

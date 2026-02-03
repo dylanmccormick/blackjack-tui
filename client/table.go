@@ -27,7 +27,7 @@ var GAME_COMMANDS = map[string]string{
 	"s": "stand",
 }
 
-func NewTable() *TuiTable {
+func NewTable(height, width int) *TuiTable {
 	betText := textinput.New()
 	betText.Placeholder = "5"
 	betText.Width = 5
@@ -41,6 +41,8 @@ func NewTable() *TuiTable {
 			"L": "leave server",
 		},
 		betInput: betText,
+		Height:   height,
+		Width:    width,
 	}
 }
 
@@ -78,6 +80,11 @@ func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
 		dealer.Value = msg.DealerHand.Value
 	}
 	t.Players[0] = dealer
+}
+
+func (t *TuiTable) Resize(height, width int) {
+	t.Height = height
+	t.Width = width
 }
 
 func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -134,10 +141,9 @@ func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (t *TuiTable) View() string {
 	color := lipgloss.Color("#FFFFFF")
-	style := lipgloss.NewStyle().Foreground(color).Border(lipgloss.DoubleBorder())
+	style := lipgloss.NewStyle().Foreground(color).Border(lipgloss.DoubleBorder()).Height(t.Height-2).Width(t.Width-2).Align(lipgloss.Center, lipgloss.Center)
 	return style.Render(t.renderMiddle())
 }
-
 
 func (t *TuiTable) renderMiddle() string {
 	vzone1 := t.renderVerticalZone1()

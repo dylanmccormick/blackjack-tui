@@ -16,9 +16,11 @@ type TableMenuModel struct {
 	availableTables []*protocol.TableDTO
 	commandSet      bool
 	Commands        map[string]string
+	Height          int
+	Width           int
 }
 
-func NewTableMenu() *TableMenuModel {
+func NewTableMenu(height, width int) *TableMenuModel {
 	ti := textinput.New()
 	ti.Placeholder = "my_cool_table"
 	ti.Width = 40
@@ -32,6 +34,8 @@ func NewTableMenu() *TableMenuModel {
 			"esc":   "back",
 			"n":     "new table",
 		},
+		Height: height,
+		Width:  width,
 	}
 }
 

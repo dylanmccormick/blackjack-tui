@@ -28,6 +28,13 @@ func ReceiveMessage(sub <-chan *protocol.TransportMessage) tea.Cmd {
 				log.Printf("ERROR: %v", err)
 			}
 			return body
+		case protocol.MsgPopUp:
+			body := protocol.PopUpDTO{}
+			err := json.Unmarshal(msg.Data, &body)
+			if err != nil {
+				log.Printf("ERROR: %v", err)
+			}
+			return body
 		}
 
 		return nil

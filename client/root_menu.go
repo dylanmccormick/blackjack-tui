@@ -42,7 +42,7 @@ func NewMenuModel() *MenuModel {
 		page:          mainMenu,
 		MainMenu:      NewMainMenu(),
 		ServerMenu:    NewServerMenu(),
-		TableMenu:     NewTableMenu(),
+		TableMenu:     NewTableMenu(0, 0), // TODO
 		SettingsMenu:  NewSettingsMenu(),
 		CommandsSet:   false,
 	}
