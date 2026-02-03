@@ -63,7 +63,7 @@ func RunServer() {
 	slog.SetDefault(logger)
 	serverLog = slog.With("component", "server")
 
-	store, err := store.NewStore("blackjack-db")
+	store, err := store.NewStore(os.Getenv("SQLITE_DB"))
 	if err != nil {
 		slog.Error("Unable to load or create datastore", "error", err)
 		os.Exit(1)
