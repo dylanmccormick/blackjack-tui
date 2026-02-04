@@ -11,7 +11,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func NewStore(dbPath, schemaLocation string,) (*Store, error) {
+func NewStore(dbPath, schemaLocation string) (*Store, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return &Store{}, err
@@ -123,14 +123,16 @@ func isYesterday(t time.Time) bool {
 	now := time.Now()
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	yesterdayStart := todayStart.AddDate(0, 0, -1)
-	tStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	tLocal := t.In(now.Location())
+	tStart := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, tLocal.Location())
 	return tStart.Equal(yesterdayStart)
 }
 
 func isToday(t time.Time) bool {
 	now := time.Now()
+	tLocal := t.In(now.Location())
 	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	tStart := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	tStart := time.Date(tLocal.Year(), tLocal.Month(), tLocal.Day(), 0, 0, 0, 0, tLocal.Location())
 	return tStart.Equal(todayStart)
 }
 
@@ -166,7 +168,9 @@ func (s *Store) ProcessLogin(ctx context.Context, githubID string) (database.Use
 	if err != nil {
 		return user, -1, err
 	}
+	slog.Info("Last login:", "date", user.LastLogin)
 	if isYesterday(user.LastLogin) {
+		slog.Info("Last login was yesterday!")
 		user, err = s.DB.UpdateLoginStreak(
 			ctx, database.UpdateLoginStreakParams{
 				LoginStreak: user.LoginStreak + 1,
@@ -174,9 +178,11 @@ func (s *Store) ProcessLogin(ctx context.Context, githubID string) (database.Use
 			},
 		)
 	} else if isToday(user.LastLogin) {
+		slog.Info("Last login was today!")
 		// do nothing!
 		return user, 0, nil
 	} else {
+		slog.Info("Last login was many days ago!")
 		user, err = s.DB.UpdateLoginStreak(
 			ctx,
 			database.UpdateLoginStreakParams{
