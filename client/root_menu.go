@@ -21,6 +21,8 @@ type (
 		TableMenu    tea.Model
 		SettingsMenu tea.Model
 		CommandsSet  bool
+		Height       int
+		Width        int
 	}
 )
 
@@ -60,7 +62,7 @@ func (mm *MenuModel) Init() tea.Cmd {
 
 func (mm *MenuModel) View() string {
 	// I should probably use a bubbles list
-	viewStyle := lipgloss.NewStyle().Width(40).Align(lipgloss.Center, lipgloss.Center)
+	viewStyle := lipgloss.NewStyle().Align(lipgloss.Center, lipgloss.Center).Height(mm.Height).Width(mm.Width)
 	var view string
 	switch mm.page {
 	case mainMenu:
@@ -83,6 +85,9 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		log.Printf("Changing menu page: %#v", msg.page)
 		mm.page = msg.page
 		mm.CommandsSet = false
+	case tea.WindowSizeMsg:
+		mm.Height = (msg.Height * 2 / 3)
+		mm.Width = (msg.Width - 6) / 2
 	}
 	switch mm.page {
 	case mainMenu:
@@ -100,4 +105,3 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return mm, tea.Batch(cmds...)
 }
-

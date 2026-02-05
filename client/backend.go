@@ -290,6 +290,9 @@ func (m *MockBackendClient) FetchData() {
 			log.Println("generating game data")
 			tm = generateGameData()
 		}
+		// if rand.IntN(5) == 3 {
+		tm = append(tm, generatePopUp())
+		// }
 		select {
 		case <-m.disconnect:
 			close(m.wsOut)
@@ -355,6 +358,17 @@ func generateTableData() []*protocol.TransportMessage {
 		return nil
 	}
 	return []*protocol.TransportMessage{dat}
+}
+
+func generatePopUp() *protocol.TransportMessage {
+	states := []string{"error", "info", "warn"}
+	typ := states[rand.IntN(2)]
+	dat, err := protocol.PackageMessage(protocol.PopUpDTO{Message: "this is a test message", Type: typ})
+	if err != nil {
+		slog.Error("Unable to generate popup data. encoding error:", "error", err)
+		return nil
+	}
+	return dat
 }
 
 func (m *MockBackendClient) GetChan() chan *protocol.TransportMessage {

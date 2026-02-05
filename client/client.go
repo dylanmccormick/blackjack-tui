@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -38,6 +39,8 @@ type RootModel struct {
 	loginModel  tea.Model
 	footerModel tea.Model
 	headerModel tea.Model
+	leftBar     tea.Model
+	rightBar    tea.Model
 }
 
 var ROOT_COMMANDS = map[string]string{"ctrl+c": "quit"}
@@ -89,6 +92,7 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		rm.width = msg.Width
 		rm.height = msg.Height
+		slog.Info("Sizes:", "t_width", msg.Width, "t_height", msg.Height, "rootwidth", rm.width, "rootheight", rm.height)
 	case tea.KeyMsg:
 		// Top Level Keys. Kill the program type keys
 		switch msg.Type {
@@ -116,29 +120,37 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 	rm.headerModel, cmd = rm.headerModel.Update(msg)
 	cmds = append(cmds, cmd)
+	rm.leftBar, cmd = rm.leftBar.Update(msg)
+	cmds = append(cmds, cmd)
+	rm.rightBar, cmd = rm.rightBar.Update(msg)
+	cmds = append(cmds, cmd)
 	return rm, tea.Batch(append(cmds, ReceiveMessage(rm.wsMessages))...)
 }
 
 func NewRootModel(tmio BackendClient) *RootModel {
 	wsChan := tmio.GetChan()
 	return &RootModel{
+		height:      60,
+		width:       200,
 		transporter: tmio,
 		wsMessages:  wsChan,
 		table:       NewTable(20, 80),
 		menuModel:   NewMenuModel(),
 		loginModel:  &LoginModel{},
 		footerModel: NewFooter(3, 78),
-		headerModel: NewHeader(),
+		headerModel: NewHeader(6, 200),
 		state:       "menu",
+		leftBar:     NewLeftBar(0, 0),
+		rightBar:    NewRightBar(0, 0),
 	}
 }
 
 func (rm *RootModel) View() string {
 	style := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		Width(120).
-		Height(30).
-		Margin(((rm.height - 30) / 2), ((rm.width - 120) / 2))
+		Width(rm.width-6).
+		Height(rm.height-6).
+		Margin(3, 3)
 	var mainView string
 	switch rm.page {
 	case menuPage:
@@ -149,12 +161,14 @@ func (rm *RootModel) View() string {
 		mainView = rm.loginModel.View()
 		return style.Render(mainView)
 	}
-	bannerHeight := 5
 	mainViewStyle := lipgloss.NewStyle().
-		Width(120-2).
-		Height(30-bannerHeight).
-		Align(lipgloss.Center, lipgloss.Center)
-	fullView := lipgloss.Place(120, 30, lipgloss.Center, lipgloss.Center, lipgloss.JoinVertical(lipgloss.Top, rm.headerModel.View(), mainViewStyle.Render(mainView), rm.footerModel.View()))
+		Width((rm.width-6)/2).
+		Height(rm.height*2/3).
+		Align(lipgloss.Center, lipgloss.Center).
+		Border(lipgloss.RoundedBorder())
+
+	view := lipgloss.JoinHorizontal(lipgloss.Left, rm.leftBar.View(), lipgloss.JoinVertical(lipgloss.Top, rm.headerModel.View(), mainViewStyle.Render(mainView), rm.footerModel.View()), rm.rightBar.View())
+	fullView := lipgloss.Place(rm.width/2, rm.height*3/4, lipgloss.Center, lipgloss.Center, view)
 	return style.Render(fullView)
 }
 
