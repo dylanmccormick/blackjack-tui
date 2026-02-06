@@ -16,11 +16,12 @@ type HeaderModel struct {
 }
 
 const banner = `
- ____  _        _    ____ _  __   _   _    ____ _  __ 
-| __ )| |      / \  / ___| |/ /  | | / \  / ___| |/ / 
-|  _ \| |     / _ \| |   | ' /_  | |/ _ \| |   | ' /  
-| |_) | |___ / ___ \ |___| . \ |_| / ___ \ |___| . \  
-|____/|_____/_/   \_\____|_|\_\___/_/   \_\____|_|\_\ 
+ ██████╗ ██╗      █████╗  ██████╗██╗  ██╗     ██╗ █████╗  ██████╗██╗  ██╗
+ ██╔══██╗██║     ██╔══██╗██╔════╝██║ ██╔╝     ██║██╔══██╗██╔════╝██║ ██╔╝
+ ██████╔╝██║     ███████║██║     █████╔╝      ██║███████║██║     █████╔╝ 
+ ██╔══██╗██║     ██╔══██║██║     ██╔═██╗ ██   ██║██╔══██║██║     ██╔═██╗ 
+ ██████╔╝███████╗██║  ██║╚██████╗██║  ██╗╚█████╔╝██║  ██║╚██████╗██║  ██╗
+ ╚═════╝ ╚══════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚════╝ ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
 `
 
 func NewHeader(height, width int) *HeaderModel {
@@ -40,24 +41,13 @@ func (hm *HeaderModel) View() string {
 func (hm *HeaderModel) renderBanner() string {
 	style := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(highlight)).
-		Width(hm.Width / 2).
+		Width(hm.Width).
 		Height(hm.Height).
 		Align(lipgloss.Center)
 
 	var sb strings.Builder
 
 	sb.WriteString(banner)
-	return style.Render(sb.String())
-}
-
-func (hm *HeaderModel) renderUserData() string {
-	style := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(foreground)).
-		Width(hm.Width / 4).
-		Height(hm.Height).
-		Align(lipgloss.Center)
-	var sb strings.Builder
-	sb.WriteString(hm.Username)
 	return style.Render(sb.String())
 }
 

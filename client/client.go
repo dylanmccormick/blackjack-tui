@@ -18,8 +18,6 @@ const (
 	loginPage page = iota
 	menuPage
 	gamePage
-	Width  = 6
-	Height = 5
 )
 
 type RootModel struct {
@@ -136,7 +134,7 @@ func NewRootModel(tmio BackendClient) *RootModel {
 		wsMessages:  wsChan,
 		table:       NewTable(20, 80),
 		menuModel:   NewMenuModel(),
-		loginModel:  &LoginModel{},
+		loginModel:  &SplashModel{},
 		footerModel: NewFooter(3, 78),
 		headerModel: NewHeader(6, 200),
 		state:       "menu",
@@ -159,7 +157,7 @@ func (rm *RootModel) View() string {
 		mainView = rm.table.View()
 	case loginPage:
 		mainView = rm.loginModel.View()
-		return style.Render(mainView)
+		// return style.Render(mainView)
 	}
 	mainViewStyle := lipgloss.NewStyle().
 		Width((rm.width-6)/2).

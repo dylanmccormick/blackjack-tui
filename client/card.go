@@ -25,6 +25,10 @@ const (
 	cardTR  = "╮"
 	cardBL  = "╰"
 	cardBR  = "╯"
+
+
+	Width  = 6
+	Height = 5
 )
 
 func NewCard(value, suit int) *Card {
