@@ -14,7 +14,6 @@ type TableMenuModel struct {
 	textInput       textinput.Model
 	currTableIndex  int
 	availableTables []*protocol.TableDTO
-	commandSet      bool
 	Commands        map[string]string
 	Height          int
 	Width           int
@@ -26,7 +25,6 @@ func NewTableMenu(height, width int) *TableMenuModel {
 	ti.Width = 40
 	return &TableMenuModel{
 		textInput:  ti,
-		commandSet: false,
 		Commands: map[string]string{
 			"j":     "down",
 			"k":     "up",
@@ -61,11 +59,11 @@ func (tm *TableMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// for when the root model is on page lobby
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
-	if !tm.commandSet {
-		cmds = append(cmds, AddCommands(tm.Commands))
-		tm.commandSet = true
-	}
 	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		cmds = append(cmds, AddCommands(tm.Commands))
+	case ChangeRootPageMsg:
+		cmds = append(cmds, AddCommands(tm.Commands))
 	case TextFocusMsg:
 		tm.textInput.Focus()
 	case tea.KeyMsg:
@@ -93,7 +91,6 @@ func (tm *TableMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					log.Printf("Attempting to join table: %s", tableName)
 					cmd = ChangeRootPage(gamePage)
 					cmds = append(cmds, cmd)
-					tm.commandSet = false
 				}
 			}
 		case tea.KeyRunes:

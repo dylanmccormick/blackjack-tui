@@ -1,23 +1,37 @@
 package client
 
 import (
+	"log/slog"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 type SplashModel struct {
-	Height int
-	Width  int
+	Height   int
+	Width    int
+	Commands map[string]string
+}
+
+func NewSplashModel() *SplashModel {
+	return &SplashModel{
+		0,
+		0,
+		map[string]string{"enter": "continue"},
+	}
 }
 
 func (sm *SplashModel) Init() tea.Cmd {
-	return nil
+	slog.Info("INITING YOUR MOTHER")
+	return AddCommands(sm.Commands)
 }
 
 func (sm *SplashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	// var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case ChangeRootPageMsg:
+		cmds = append(cmds, AddCommands(sm.Commands))
 	case tea.WindowSizeMsg:
 		sm.Height = (msg.Height * 3 / 4) - 6
 		sm.Width = (msg.Width-6)/2 - 4
@@ -26,7 +40,6 @@ func (sm *SplashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			// this could be a command?
 			cmds = append(cmds, ChangeRootPage(menuPage))
-			cmds = append(cmds, AddCommands(ROOT_COMMANDS))
 		}
 	}
 	return sm, tea.Batch(cmds...)

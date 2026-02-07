@@ -362,7 +362,7 @@ func generateTableData() []*protocol.TransportMessage {
 
 func generatePopUp() *protocol.TransportMessage {
 	states := []string{"error", "info", "warn"}
-	typ := states[rand.IntN(2)]
+	typ := states[rand.IntN(3)]
 	dat, err := protocol.PackageMessage(protocol.PopUpDTO{Message: "this is a test message", Type: typ})
 	if err != nil {
 		slog.Error("Unable to generate popup data. encoding error:", "error", err)

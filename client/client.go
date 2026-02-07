@@ -12,10 +12,17 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type page int
+type (
+	page int
+)
+
+type PageModel interface {
+	tea.Model
+	Commands() map[string]string
+}
 
 const (
-	loginPage page = iota
+	splashPage page = iota
 	menuPage
 	gamePage
 )
@@ -26,6 +33,8 @@ type RootModel struct {
 	width  int
 	height int
 
+	currPage PageModel
+
 	mock bool
 
 	transporter BackendClient
@@ -34,23 +43,24 @@ type RootModel struct {
 
 	table       tea.Model
 	menuModel   tea.Model
-	loginModel  tea.Model
+	splashModel tea.Model
 	footerModel tea.Model
 	headerModel tea.Model
 	leftBar     tea.Model
 	rightBar    tea.Model
+	pageMap     map[page]PageModel
 }
 
 var ROOT_COMMANDS = map[string]string{"ctrl+c": "quit"}
 
 func (rm *RootModel) Init() tea.Cmd {
-	rm.page = loginPage
-	commands := map[string]string{"ctrl+c": "quit"}
+	rm.page = splashPage
+	// commands := map[string]string{"ctrl+c": "quit"}
 	return tea.Batch(
 		rm.menuModel.Init(),
 		tea.ClearScreen,
 		ReceiveMessage(rm.wsMessages),
-		AddCommands(commands),
+		ChangeRootPage(splashPage),
 	)
 }
 
@@ -105,8 +115,8 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case menuPage:
 		rm.menuModel, cmd = rm.menuModel.Update(msg)
 		cmds = append(cmds, cmd)
-	case loginPage:
-		rm.loginModel, cmd = rm.loginModel.Update(msg)
+	case splashPage:
+		rm.splashModel, cmd = rm.splashModel.Update(msg)
 		cmds = append(cmds, cmd)
 	case gamePage:
 		rm.table, cmd = rm.table.Update(msg)
@@ -127,20 +137,22 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func NewRootModel(tmio BackendClient) *RootModel {
 	wsChan := tmio.GetChan()
-	return &RootModel{
+	rm := &RootModel{
 		height:      60,
 		width:       200,
 		transporter: tmio,
 		wsMessages:  wsChan,
 		table:       NewTable(20, 80),
 		menuModel:   NewMenuModel(),
-		loginModel:  &SplashModel{},
+		splashModel: NewSplashModel(),
 		footerModel: NewFooter(3, 78),
 		headerModel: NewHeader(6, 200),
 		state:       "menu",
 		leftBar:     NewLeftBar(0, 0),
 		rightBar:    NewRightBar(0, 0),
 	}
+
+	return rm
 }
 
 func (rm *RootModel) View() string {
@@ -155,8 +167,8 @@ func (rm *RootModel) View() string {
 		mainView = rm.menuModel.View()
 	case gamePage:
 		mainView = rm.table.View()
-	case loginPage:
-		mainView = rm.loginModel.View()
+	case splashPage:
+		mainView = rm.splashModel.View()
 		// return style.Render(mainView)
 	}
 	mainViewStyle := lipgloss.NewStyle().

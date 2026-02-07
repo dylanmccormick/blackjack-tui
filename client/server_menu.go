@@ -32,7 +32,7 @@ func NewServerMenu() *ServerMenuModel {
 			"esc":   "back",
 			"n":     "new server",
 		},
-		loginMenu:    &LoginMenu{userCodePage, "", ""},
+		loginMenu:    &LoginMenu{userCodePage, "", "", make(map[string]string)},
 		savedServers: []string{"http://blackjack.dylanjmccormick.com", "http://localhost:42069"},
 	}
 }

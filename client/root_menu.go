@@ -20,9 +20,9 @@ type (
 		ServerMenu   tea.Model
 		TableMenu    tea.Model
 		SettingsMenu tea.Model
-		CommandsSet  bool
 		Height       int
 		Width        int
+		commands     map[string]string
 	}
 )
 
@@ -46,18 +46,21 @@ func NewMenuModel() *MenuModel {
 		ServerMenu:    NewServerMenu(),
 		TableMenu:     NewTableMenu(0, 0), // TODO
 		SettingsMenu:  NewSettingsMenu(),
-		CommandsSet:   false,
 	}
 }
 
+func (mm *MenuModel) Commands() map[string]string {
+	return mm.commands
+}
+
 func (mm *MenuModel) Init() tea.Cmd {
-	commands := map[string]string{
-		"j":     "down",
-		"k":     "up",
-		"enter": "select",
-		"esc":   "back",
-	}
-	return AddCommands(commands)
+	// commands := map[string]string{
+	// 	"j":     "down",
+	// 	"k":     "up",
+	// 	"enter": "select",
+	// 	"esc":   "back",
+	// }
+	return nil
 }
 
 func (mm *MenuModel) View() string {
@@ -81,10 +84,10 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+
 	case ChangeMenuPage:
 		log.Printf("Changing menu page: %#v", msg.page)
 		mm.page = msg.page
-		mm.CommandsSet = false
 	case tea.WindowSizeMsg:
 		mm.Height = (msg.Height * 2 / 3)
 		mm.Width = (msg.Width - 6) / 2

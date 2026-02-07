@@ -46,8 +46,9 @@ func NewTable(height, width int) *TuiTable {
 	}
 }
 
+
 func (t *TuiTable) Init() tea.Cmd {
-	return AddCommands(t.Commands)
+	return nil
 }
 
 func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
@@ -90,11 +91,11 @@ func (t *TuiTable) Resize(height, width int) {
 func (t *TuiTable) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
-	if !t.commandSet {
-		cmds = append(cmds, AddCommands(t.Commands))
-		t.commandSet = true
-	}
 	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		cmds = append(cmds, AddCommands(t.Commands))
+	case ChangeRootPageMsg:
+		cmds = append(cmds, AddCommands(t.Commands))
 	case AuthPollMsg:
 		t.username = msg.UserName
 	case TextFocusMsg:

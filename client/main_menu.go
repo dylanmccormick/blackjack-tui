@@ -12,7 +12,6 @@ type MainMenuModel struct {
 	currMenuIndex int
 	menuItems     []string
 	Commands      map[string]string
-	commandSet    bool
 }
 
 func NewMainMenu() *MainMenuModel {
@@ -50,11 +49,11 @@ func (mm *MainMenuModel) View() string {
 
 func (mm *MainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
-	if !mm.commandSet {
-		cmds = append(cmds, AddCommands(mm.Commands))
-		mm.commandSet = true
-	}
 	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		cmds = append(cmds, AddCommands(mm.Commands))
+	case ChangeRootPageMsg:
+		cmds = append(cmds, AddCommands(mm.Commands))
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
@@ -70,7 +69,6 @@ func (mm *MainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			log.Printf("New page: %#v", newPage)
 			cmds = append(cmds, ChangeMenuPageCmd(newPage))
-			mm.commandSet = false
 		case tea.KeyRunes:
 			switch string(msg.Runes) {
 			case "j":

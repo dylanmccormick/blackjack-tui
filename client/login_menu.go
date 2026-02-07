@@ -17,6 +17,7 @@ type LoginMenu struct {
 	page       loginMenuPage
 	userCode   string
 	currentUrl string
+	Commands   map[string]string
 }
 
 func (lm *LoginMenu) View() string {
@@ -48,6 +49,10 @@ func (lm *LoginMenu) Update(msg tea.Msg) (*LoginMenu, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		cmds = append(cmds, AddCommands(lm.Commands))
+	case ChangeRootPageMsg:
+		cmds = append(cmds, AddCommands(lm.Commands))
 	case AuthLoginMsg:
 		lm.userCode = msg.UserCode
 		lm.page = userCodePage
@@ -72,4 +77,3 @@ func (lm *LoginMenu) Update(msg tea.Msg) (*LoginMenu, tea.Cmd) {
 func (lm *LoginMenu) Init() tea.Cmd {
 	return nil
 }
-
