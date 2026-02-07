@@ -81,6 +81,9 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rm.transporter.Connect()
 		cmd := SendData(protocol.PackageClientMessage(protocol.MsgTableList, ""))
 		cmds = append(cmds, cmd)
+	case ReloadStatsMsg:
+		cmd := SendData(protocol.PackageClientMessage(protocol.MsgGetStats, ""))
+		cmds = append(cmds, cmd)
 
 	// Current Page Commands
 	case LoginRequested:

@@ -20,6 +20,7 @@ type (
 		ServerMenu   tea.Model
 		TableMenu    tea.Model
 		SettingsMenu tea.Model
+		StatsMenu    tea.Model
 		Height       int
 		Width        int
 		commands     map[string]string
@@ -31,6 +32,7 @@ const (
 	serverMenu
 	tableMenu
 	settingsMenu
+	statsMenu
 )
 
 var dialogueCommands = map[string]string{
@@ -46,6 +48,7 @@ func NewMenuModel() *MenuModel {
 		ServerMenu:    NewServerMenu(),
 		TableMenu:     NewTableMenu(0, 0), // TODO
 		SettingsMenu:  NewSettingsMenu(),
+		StatsMenu:     NewStatsMenu(),
 	}
 }
 
@@ -76,6 +79,8 @@ func (mm *MenuModel) View() string {
 		view = mm.ServerMenu.View()
 	case settingsMenu:
 		view = mm.SettingsMenu.View()
+	case statsMenu:
+		view = mm.StatsMenu.View()
 	}
 	return viewStyle.Render(view)
 }
@@ -104,6 +109,9 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	case settingsMenu:
 		mm.SettingsMenu, cmd = mm.SettingsMenu.Update(msg)
+		cmds = append(cmds, cmd)
+	case statsMenu:
+		mm.StatsMenu, cmd = mm.StatsMenu.Update(msg)
 		cmds = append(cmds, cmd)
 	}
 	return mm, tea.Batch(cmds...)

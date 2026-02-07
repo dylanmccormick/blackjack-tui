@@ -7,6 +7,14 @@ import (
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
 
+type ReloadStatsMsg struct{}
+
+func ReloadStatsCmd() tea.Cmd {
+	return func() tea.Msg {
+		return ReloadStatsMsg{}
+	}
+}
+
 type StartWSMsg struct{}
 
 func StartWSCmd() tea.Cmd {

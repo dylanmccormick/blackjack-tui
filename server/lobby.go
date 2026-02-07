@@ -81,6 +81,17 @@ func (l *Lobby) handleCommand(ctx context.Context, msg inboundMessage) {
 	// join table, change username, get stats, etc
 	l.log.Debug("lobby got command", "command", msg.data)
 	switch msg.data.Type {
+	case protocol.MsgGetStats:
+		usr, err := l.store.DB.GetUserByUsername(ctx, msg.client.username)
+		if err != nil {
+			l.log.Error("Unable to get user data", "username", msg.client.username, "error", err)
+			return
+		}
+		l.log.Info("Showing user stats", "user", usr)
+		stats := protocol.UserToStatsDTO(&usr)
+		data, err := protocol.PackageMessage(stats)
+		msg.client.send <- data
+
 	case protocol.MsgCreateTable:
 		val, err := getValueFromRawValueMessage(msg.data.Data)
 		if err != nil {

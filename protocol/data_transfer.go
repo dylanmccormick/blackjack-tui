@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/dylanmccormick/blackjack-tui/game"
+	"github.com/dylanmccormick/blackjack-tui/internal/database"
 )
 
 type HandDTO struct {
@@ -41,10 +42,37 @@ type PopUpDTO struct {
 	Type    string `json:"type"`
 }
 
+type StatsDTO struct {
+	LifetimeBet   int `json:"lifetime_bet"`
+	LifetimeLoss  int `json:"lifetime_loss"`
+	LifetimeWon   int `json:"lifetime_won"`
+	Blackjacks    int `json:"lifetime_blackjacks"`
+	Wallet        int `json:"wallet"`
+	HandsPlayed   int `json:"hands_played"`
+	HandsWon      int `json:"hands_won"`
+	HandsLost     int `json:"hands_lost"`
+	WinPercentage int `json:"win_percentage"`
+}
+
 func CardToDTO(c game.Card) CardDTO {
 	return CardDTO{
 		Suit: string(c.Suit),
 		Rank: int(c.Rank),
+	}
+}
+
+func UserToStatsDTO(u *database.User) StatsDTO {
+	slog.Info("Translating stats", "user", u)
+	return StatsDTO{
+		LifetimeBet:   int(u.AmountBetLifetime),
+		LifetimeLoss:  int(u.AmountLostLifetime),
+		LifetimeWon:   int(u.AmountWonLifetime),
+		Blackjacks:    int(u.Blackjacks),
+		Wallet:        int(u.Wallet),
+		HandsPlayed:   int(u.HandsPlayed),
+		HandsWon:      int(u.HandsWon),
+		HandsLost:     int(u.HandsLost),
+		WinPercentage: int(100 * u.HandsWon / u.HandsPlayed),
 	}
 }
 
@@ -100,6 +128,6 @@ func DealerToDTO(state game.GameState, h *game.Hand) HandDTO {
 func MessageToDTO(message string, lvl PopUpType) PopUpDTO {
 	return PopUpDTO{
 		Message: message,
-		Type: string(lvl),
+		Type:    string(lvl),
 	}
 }

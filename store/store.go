@@ -225,3 +225,4 @@ func (s *Store) GetOrCreateUser(githubID string) (database.User, error) {
 
 	return user, nil
 }
+

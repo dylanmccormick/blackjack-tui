@@ -19,7 +19,8 @@ func NewMainMenu() *MainMenuModel {
 		menuItems: []string{
 			"Servers",
 			"Tables",
-			"Settings",
+			// "Settings",
+			"Stats",
 		},
 		Commands: map[string]string{
 			"j":     "down",
@@ -66,6 +67,8 @@ func (mm *MainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newPage = tableMenu
 			case "Settings":
 				newPage = settingsMenu
+			case "Stats":
+				newPage = statsMenu
 			}
 			log.Printf("New page: %#v", newPage)
 			cmds = append(cmds, ChangeMenuPageCmd(newPage))

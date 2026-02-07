@@ -25,6 +25,7 @@ const (
 	MsgGameState = "game_state"
 	MsgTableList = "table_list"
 	MsgPopUp     = "pop_up"
+	MsgUserStats = "user_stats"
 
 	// client to server
 	MsgPlaceBet    = "place_bet"
@@ -37,6 +38,7 @@ const (
 	MsgStartGame   = "start_game"
 	MsgDealCards   = "deal_cards"
 	MsgGetState    = "get_state"
+	MsgGetStats    = "get_stats"
 
 	MsgLogin      = "login"
 	MsgAuthStatus = "auth_status"
@@ -47,7 +49,6 @@ type ValueMessage struct {
 }
 
 func PackageMessage(dto any) (*TransportMessage, error) {
-	// TODO: change this to return a transport message. The IO handler should be translating json -> bytes. websocket.WriteJSON
 	message := TransportMessage{}
 	data, err := json.Marshal(dto)
 	if err != nil {
@@ -61,6 +62,8 @@ func PackageMessage(dto any) (*TransportMessage, error) {
 		message.Type = MsgTableList
 	case PopUpDTO:
 		message.Type = MsgPopUp
+	case StatsDTO:
+		message.Type = MsgUserStats
 	}
 
 	return &message, nil

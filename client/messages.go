@@ -35,6 +35,14 @@ func ReceiveMessage(sub <-chan *protocol.TransportMessage) tea.Cmd {
 				log.Printf("ERROR: %v", err)
 			}
 			return body
+		case protocol.MsgUserStats:
+			body := protocol.StatsDTO{}
+			err := json.Unmarshal(msg.Data, &body)
+			if err != nil {
+				log.Printf("ERROR: %v", err)
+			}
+			slog.Info("Parsed user stats", "body", body)
+			return body
 		}
 
 		return nil
