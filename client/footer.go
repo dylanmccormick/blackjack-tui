@@ -41,7 +41,7 @@ func (f *Footer) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (f *Footer) View() string {
-	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(softForeground))
+	footerStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(highlight))
 	views := []string{}
 	for key, cmd := range f.commands {
 		views = (append(views, fmt.Sprintf(" %s-%s ", key, cmd)))

@@ -9,4 +9,5 @@ const (
 	popUpErr       = "#E67E80"
 	popUpWarn      = "#E69875"
 	popUpInfo      = "#83C092"
+	green          = "#A7C080"
 )

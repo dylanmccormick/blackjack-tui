@@ -88,8 +88,10 @@ func (lb *RightBar) Init() tea.Cmd {
 }
 
 type LeftBar struct {
-	Height int
-	Width  int
+	Height       int
+	Width        int
+	Username     string
+	ServerStatus string
 }
 
 func NewLeftBar(height, width int) *LeftBar {
@@ -111,8 +113,18 @@ func (lb *LeftBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (lb *LeftBar) View() string {
-	style := lipgloss.NewStyle().Width(lb.Width).Height(lb.Height)
-	return style.Render("THIS IS THE LEFT BAR. IN LEFT BAR WE TRUST")
+	style := lipgloss.NewStyle().Width(lb.Width - 2).Height(lb.Height-2).MarginLeft(2).MarginTop(2)
+	var sb strings.Builder
+	if lb.Username == "" {
+		sb.WriteString("Not logged in")
+	} else {
+		sb.WriteString("Logged in as ")
+		sb.WriteString(lb.Username)
+	}
+	sb.WriteString("\n")
+	sb.WriteString("Server Status: ")
+	sb.WriteString("TODO")
+	return style.Render(sb.String())
 }
 
 func (lb *LeftBar) Init() tea.Cmd {

@@ -3,17 +3,19 @@
 ## Server ToDo
 
 - Make values paramaters with a config file at some point
+  - Make these configs shared... context?
+- Start sending error messages back to the client from the server (use the popups)
 - generate id from websocket to make sure that it is sticky.
 - BUG: player joining mid-round causes game to crash
 - Player should be BOOTED when they run out of funds
+- Shutdown cleanup procedure
+
+### Priority
+- Server health checks /healthz
 
 ## UI TODO
 
-- selecting a server
 - settings menu to change username or something like that
-- allow user to change bet amount
-- BUG: commands are not updating for each page. Will need to fix that
-- allow user to leave a table
 
 ## Features
 
@@ -28,3 +30,7 @@
 - table.go make sure that game isn't started already when start command is sent
 - update package message to return a transport message like the other package method does
 - BUG: when a player leaves a game and there are no active players, the server crashes
+- BUG: commands are not updating for each page. Will need to fix that
+- allow user to change bet amount
+- selecting a server
+- allow user to leave a table

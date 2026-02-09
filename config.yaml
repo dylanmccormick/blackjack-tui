@@ -1,0 +1,16 @@
+# Blackjack Config File
+
+# Server Config
+sqlite_db_path: "./sql/schema"
+port: 42069
+
+table_action_timeout_seconds: 30
+table_auto_delete_timout_minutes: 5
+
+# Game Config
+stand_on_soft_17: true
+bet_time_seconds: 30
+deck_count: 6
+cut_location: 150
+
+# TUI Config

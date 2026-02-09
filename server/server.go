@@ -55,6 +55,17 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+type Config struct {
+	SqliteDBPath       string `yaml:"sqlite_db_path"`
+	port               string `yaml:"port"`
+	TableActionTimeout int    `yaml:"table_action_timeout_seconds"`
+	TableDeleteTimeout int    `yaml:"table_auto_delete_timout_minutes"`
+	StandOnSoft17      bool   `yaml:"stand_on_soft_17"`
+	BetTimeout         int    `yaml:"bet_time_seconds"`
+	DeckCount          int    `yaml:"deck_count"`
+	CutLocation        int    `yaml:"cut_location"`
+}
+
 func RunServer() {
 	handlerOptions := &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -63,13 +74,16 @@ func RunServer() {
 	slog.SetDefault(logger)
 	serverLog = slog.With("component", "server")
 
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "config", Config{})
+
 	store, err := store.NewStore(os.Getenv("SQLITE_DB"), "./sql/schema")
 	if err != nil {
 		slog.Error("Unable to load or create datastore", "error", err)
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// signal handler
