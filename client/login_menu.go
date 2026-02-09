@@ -60,7 +60,6 @@ func (lm *LoginMenu) Update(msg tea.Msg) (*LoginMenu, tea.Cmd) {
 		if msg.Authenticated {
 			lm.page = confirmationPage
 		}
-
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:

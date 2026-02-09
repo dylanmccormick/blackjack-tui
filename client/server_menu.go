@@ -86,7 +86,7 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				server := sm.textInput.Value()
 				sm.savedServers = append(sm.savedServers, server)
 				cmds = append(cmds, AddCommands(sm.Commands))
-			} else {
+			} else if sm.state != "login" {
 				if len(sm.savedServers) > 0 {
 					server = sm.savedServers[sm.currServerIndex]
 					// TODO: join a saved server

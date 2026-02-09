@@ -16,6 +16,7 @@
 ## UI TODO
 
 - settings menu to change username or something like that
+- Revamp login/server menu. Should probably transition pages so we're not accidentally sending multiple login requests
 
 ## Features
 
