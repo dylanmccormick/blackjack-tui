@@ -52,7 +52,7 @@ func SendData(msg *protocol.TransportMessage) tea.Cmd {
 }
 
 func PopUpTimer() tea.Cmd {
-	return tea.Tick(15*time.Second, func(t time.Time) tea.Msg {
+	return tea.Tick(5*time.Second, func(t time.Time) tea.Msg {
 		return PopUpRemoveMsg{}
 	})
 }

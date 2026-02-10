@@ -49,6 +49,7 @@ type Table struct {
 func newTable(name string, lobby *Lobby, store *store.Store) *Table {
 	t := &Table{
 		clients:        make(map[*Client]bool),
+		idToClient:     make(map[uuid.UUID]*Client),
 		registerChan:   make(chan *Client),
 		unregisterChan: make(chan *Client),
 		inbound:        make(chan inboundMessage),
@@ -62,6 +63,7 @@ func newTable(name string, lobby *Lobby, store *store.Store) *Table {
 		log:            slog.With("component", "table"),
 		db:             store,
 		cleanupTicker:  time.NewTicker(REFRESH_TICK_RATE),
+		maxPlayers:     5,
 	}
 	t.log = t.log.With("table_id", t.id)
 	t.betTimer.Stop()
@@ -142,6 +144,9 @@ func (t *Table) sendDeleteMsg() {
 func (t *Table) removeInactivePlayers() {
 	players := t.game.Players
 	for _, player := range players {
+		if player == nil {
+			continue
+		}
 		if player.ShouldRemove() {
 			t.game.RemovePlayer(player.ID)
 		}
@@ -170,15 +175,36 @@ func (t *Table) handleCommand(msg inboundMessage) {
 			t.log.Error("Got bad data from command", "command", msg.data)
 		}
 		bet, err := strconv.Atoi(value.Value)
-		t.game.PlaceBet(t.game.GetPlayer(msg.client.id), bet)
+		if err != nil {
+			slog.Error("Unable to translate value to int", "error", err)
+		}
+		err = t.game.PlaceBet(t.game.GetPlayer(msg.client.id), bet)
+		if err != nil {
+			popup := CreatePopUp("Cannot place bet right now", "warn")
+			if popup != nil {
+				msg.client.send <- popup
+			}
+		}
 	case protocol.MsgDealCards:
 		t.game.DealCards()
 	case protocol.MsgHit:
 		t.log.Debug("Hitting", "client", msg.client.id)
-		t.game.Hit(t.game.GetPlayer(msg.client.id))
+		err := t.game.Hit(t.game.GetPlayer(msg.client.id))
+		if err != nil {
+			popup := CreatePopUp("It is not your turn", "warn")
+			if popup != nil {
+				msg.client.send <- popup
+			}
+		}
 		t.actionTimer.Reset(ACTION_TIMEOUT)
 	case protocol.MsgStand:
-		t.game.Stay(t.game.GetPlayer(msg.client.id))
+		err := t.game.Stay(t.game.GetPlayer(msg.client.id))
+		if err != nil {
+			popup := CreatePopUp("It is not your turn", "warn")
+			if popup != nil {
+				msg.client.send <- popup
+			}
+		}
 		t.actionTimer.Reset(ACTION_TIMEOUT)
 		t.log.Debug("Standing", "client", msg.client.id)
 	case protocol.MsgLeaveTable:
@@ -193,6 +219,9 @@ func (t *Table) DisconnectPlayer(c *Client, intentional bool) {
 	if player != nil {
 		t.log.Info("Disconnecting player", "id", player.ID, "intentional?", intentional)
 		player.MarkDisconnected(intentional)
+	}
+	if intentional {
+		t.game.RemovePlayer(player.ID)
 	}
 }
 
@@ -212,24 +241,20 @@ func (t *Table) promptCurrentPlayerTurn() {
 		slog.Error("Client not found in table")
 		return
 	}
-	msg := protocol.PopUpDTO{Message: "It is your turn!", Type: "info"}
-	data, err := protocol.PackageMessage(msg)
-	if err != nil {
-		slog.Error("Unable to package popup message", "error", err)
+	popup := CreatePopUp("It is your turn!", "info")
+	if popup != nil {
+		client.send <- popup
 	}
-	client.send <- data
 }
 
 func (t *Table) promptForBets() {
 	for client := range t.clients {
 		player := t.game.GetPlayer(client.id)
 		if player.Bet == 0 {
-			msg := protocol.PopUpDTO{Message: "Place your bet!", Type: "info"}
-			data, err := protocol.PackageMessage(msg)
-			if err != nil {
-				slog.Error("Unable to package popup message", "error", err)
+			popup := CreatePopUp("Place your bet!", "info")
+			if popup != nil {
+				client.send <- popup
 			}
-			client.send <- data
 		}
 	}
 }
@@ -283,6 +308,7 @@ func (t *Table) StoreGameData(results map[uuid.UUID]store.RoundResult) {
 		client, ok := tempMap[playerId]
 		if !ok {
 			slog.Error("player id not found in table clients", "id", playerId)
+			continue
 		}
 		githubId := client.username
 		err := t.db.RecordResult(context.TODO(), githubId, result)

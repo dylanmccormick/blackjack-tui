@@ -21,6 +21,7 @@ func NewStatsMenu() *StatsMenuModel {
 		Commands: map[string]string{
 			"j":     "down",
 			"k":     "up",
+			"r":     "refresh_stats",
 			"enter": "select",
 			"esc":   "back",
 		},

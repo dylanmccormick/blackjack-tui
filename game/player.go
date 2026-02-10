@@ -22,17 +22,19 @@ type Player struct {
 	ConnectedAt           time.Time
 	DisconnectedAt        time.Time // this will be good for time-in-game metrics or stats later
 	IntentionalDisconnect bool
-	DisconnectTimeout     *time.Timer
 }
 
 func NewPlayer(id uuid.UUID, wallet int) *Player {
 	slog.Debug("Creating new player")
 	return &Player{
-		ID:     id,
-		Hand:   &Hand{},
-		Bet:    0,
-		Wallet: wallet,
-		Name:   "placeholder",
+		ID:                    id,
+		Hand:                  &Hand{},
+		Bet:                   0,
+		Wallet:                wallet,
+		Name:                  "placeholder",
+		IntentionalDisconnect: false,
+		ConnectedAt:           time.Now(),
+		DisconnectedAt:        time.Time{},
 	}
 }
 
@@ -78,6 +80,10 @@ func (p *Player) IsActive() bool {
 }
 
 func (p *Player) ShouldRemove() bool {
+	slog.Info("Checking if player should be removed")
+	if p.DisconnectedAt.IsZero() {
+		return false
+	}
 	if p.IntentionalDisconnect {
 		return true
 	} else if time.Since(p.DisconnectedAt) > DISCONNECT_TIMEOUT {
