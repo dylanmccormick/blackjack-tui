@@ -22,6 +22,7 @@ type Player struct {
 	ConnectedAt           time.Time
 	DisconnectedAt        time.Time // this will be good for time-in-game metrics or stats later
 	IntentionalDisconnect bool
+	DisconnectTimeout     *time.Timer
 }
 
 func NewPlayer(id uuid.UUID, wallet int) *Player {

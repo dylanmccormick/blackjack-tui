@@ -2,21 +2,23 @@
 
 ## Server ToDo
 
-- Make values paramaters with a config file at some point
+- Make values parameters with a config file at some point
   - Make these configs shared... context?
 - Start sending error messages back to the client from the server (use the popups)
-- generate id from websocket to make sure that it is sticky.
 - BUG: player joining mid-round causes game to crash
 - Player should be BOOTED when they run out of funds
 - Shutdown cleanup procedure
 
 ### Priority
+
 - Server health checks /healthz
 
 ## UI TODO
 
 - settings menu to change username or something like that
 - Revamp login/server menu. Should probably transition pages so we're not accidentally sending multiple login requests
+- Tables show actual amount of players in TUI
+- Left Bar
 
 ## Features
 
@@ -35,3 +37,6 @@
 - allow user to change bet amount
 - selecting a server
 - allow user to leave a table
+- Might be nice to have a map of [uuid]*Client in the table
+
+- BUG: Players are not being kicked from server. Or removed from tables correctly

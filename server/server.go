@@ -102,6 +102,10 @@ func RunServer() {
 		sessionManager.Run(ctx)
 	})
 
+	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		auth.WriteHttpResponse(w, http.StatusOK, "{'message': 'healthy'")
+	})
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		serverLog.Info("Received connection")
 		// todo... validate logged in

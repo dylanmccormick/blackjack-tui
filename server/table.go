@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	ACTION_TIMEOUT = 30 * time.Second
-	TABLE_TIMEOUT  = 5 * time.Minute
+	ACTION_TIMEOUT    = 30 * time.Second
+	TABLE_TIMEOUT     = 5 * time.Minute
+	REFRESH_TICK_RATE = 5 * time.Second
 )
 
 type inboundMessage struct {
@@ -25,6 +26,7 @@ type inboundMessage struct {
 
 type Table struct {
 	clients        map[*Client]bool
+	idToClient     map[uuid.UUID]*Client
 	registerChan   chan *Client
 	unregisterChan chan *Client
 	inbound        chan inboundMessage
@@ -33,11 +35,12 @@ type Table struct {
 	cancel         context.CancelFunc
 	lobby          *Lobby
 
-	maxPlayers  int
-	game        *game.Game
-	betTimer    *time.Timer
-	actionTimer *time.Timer
-	tableTimer  *time.Timer
+	maxPlayers    int
+	game          *game.Game
+	betTimer      *time.Timer
+	actionTimer   *time.Timer
+	tableTimer    *time.Timer
+	cleanupTicker *time.Ticker
 
 	log *slog.Logger
 	db  *store.Store
@@ -58,6 +61,7 @@ func newTable(name string, lobby *Lobby, store *store.Store) *Table {
 		lobby:          lobby,
 		log:            slog.With("component", "table"),
 		db:             store,
+		cleanupTicker:  time.NewTicker(REFRESH_TICK_RATE),
 	}
 	t.log = t.log.With("table_id", t.id)
 	t.betTimer.Stop()
@@ -124,6 +128,8 @@ func (t *Table) run(ctx context.Context) {
 			t.sendDeleteMsg()
 			t.cleanUp()
 			return
+		case <-t.cleanupTicker.C:
+			t.removeInactivePlayers()
 		}
 	}
 }
@@ -131,6 +137,15 @@ func (t *Table) run(ctx context.Context) {
 func (t *Table) sendDeleteMsg() {
 	msg := protocol.PackageClientMessage(protocol.MsgDeleteTable, t.id)
 	t.lobby.inbound <- inboundMessage{msg, &Client{}}
+}
+
+func (t *Table) removeInactivePlayers() {
+	players := t.game.Players
+	for _, player := range players {
+		if player.ShouldRemove() {
+			t.game.RemovePlayer(player.ID)
+		}
+	}
 }
 
 func (t *Table) handleCommand(msg inboundMessage) {
@@ -190,6 +205,35 @@ func (t *Table) cmdLeaveTable(c *Client) {
 	delete(t.clients, c)
 }
 
+func (t *Table) promptCurrentPlayerTurn() {
+	player := t.game.CurrentPlayer()
+	client, ok := t.idToClient[player.ID]
+	if !ok {
+		slog.Error("Client not found in table")
+		return
+	}
+	msg := protocol.PopUpDTO{Message: "It is your turn!", Type: "info"}
+	data, err := protocol.PackageMessage(msg)
+	if err != nil {
+		slog.Error("Unable to package popup message", "error", err)
+	}
+	client.send <- data
+}
+
+func (t *Table) promptForBets() {
+	for client := range t.clients {
+		player := t.game.GetPlayer(client.id)
+		if player.Bet == 0 {
+			msg := protocol.PopUpDTO{Message: "Place your bet!", Type: "info"}
+			data, err := protocol.PackageMessage(msg)
+			if err != nil {
+				slog.Error("Unable to package popup message", "error", err)
+			}
+			client.send <- data
+		}
+	}
+}
+
 func (t *Table) autoProgress() {
 OuterLoop:
 	for {
@@ -200,6 +244,7 @@ OuterLoop:
 				t.game.StartRound()
 			} else {
 				// if you don't do this there will be an infinite loop of WAITING_FOR_MORE_BETS checks
+				t.promptForBets()
 				t.broadcastGameState()
 				return
 			}
@@ -219,6 +264,7 @@ OuterLoop:
 			t.StoreGameData(pmap)
 			t.betTimer.Reset(ACTION_TIMEOUT)
 		default:
+			t.promptCurrentPlayerTurn()
 			t.broadcastGameState()
 			break OuterLoop
 		}
@@ -289,6 +335,7 @@ func (t *Table) RegisterClient(client *Client) {
 		t.game.AddPlayer(p)
 	}
 	t.clients[client] = true
+	t.idToClient[client.id] = client
 	if t.game.State == game.WAIT_FOR_START {
 		t.game.State = game.WAITING_FOR_BETS
 	}
@@ -298,6 +345,7 @@ func (t *Table) UnregisterClient(client *Client) {
 	t.log.Info("attempting to unregister client", "client", client.id)
 	t.DisconnectPlayer(client, false)
 	if _, ok := t.clients[client]; ok {
+		delete(t.idToClient, client.id)
 		delete(t.clients, client)
 		close(client.send)
 	}
