@@ -49,9 +49,17 @@ The server is hosted on my own hardware so if it is down... sorry probably Russi
 
 Thanks for checking out my project! If you have any suggestions or tips for me feel free to send me a message or open an issue. I'd love to hear what you have to say.
 
-## Skills Learned in this Project
+## What I learned in this project
 
 - Sqlite with go
 - Websockets
 - Channels and concurrent go patterns
 - Context
+
+## Why Go?
+
+I chose to use go for this project because it is a common tool for command-line applications. I wanted to have a strongly-typed language that forced me to think about how my data is modeled. The language I have used most in my career is Python, but that does not reinforce good habits when it comes to modeling data and object-oriented design. Go also has idiomatic error checking and a good standard library. I also like that there are good packages for websockets (gorilla websockets) and for terminal UIs (bubbletea).
+
+## Architecture
+
+<!-- TODO -->

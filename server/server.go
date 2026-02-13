@@ -59,7 +59,7 @@ type Config struct {
 	SqliteDBPath       string `yaml:"sqlite_db_path"`
 	port               string `yaml:"port"`
 	TableActionTimeout int    `yaml:"table_action_timeout_seconds"`
-	TableDeleteTimeout int    `yaml:"table_auto_delete_timout_minutes"`
+	TableDeleteTimeout int    `yaml:"table_auto_delete_timeout_minutes"`
 	StandOnSoft17      bool   `yaml:"stand_on_soft_17"`
 	BetTimeout         int    `yaml:"bet_time_seconds"`
 	DeckCount          int    `yaml:"deck_count"`
@@ -103,7 +103,7 @@ func RunServer() {
 	})
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		auth.WriteHttpResponse(w, http.StatusOK, "{'message': 'healthy'")
+		auth.WriteHttpResponse(w, http.StatusOK, "{'message': 'healthy'}")
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

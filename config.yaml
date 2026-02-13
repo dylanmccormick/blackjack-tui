@@ -5,7 +5,7 @@ sqlite_db_path: "./sql/schema"
 port: 42069
 
 table_action_timeout_seconds: 30
-table_auto_delete_timout_minutes: 5
+table_auto_delete_timeout_minutes: 5
 
 # Game Config
 stand_on_soft_17: true
