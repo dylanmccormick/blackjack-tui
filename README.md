@@ -62,4 +62,19 @@ I chose to use go for this project because it is a common tool for command-line 
 
 ## Architecture
 
-<!-- TODO -->
+```
+┌────────────┐   HTTP       ┌────────────┐ HTTP   ┌─────────────┐
+│ TUI Client │◄────────────►│   Server   │◄─────► │ Github      │
+│ (Bubbletea)│              │            │        │ Oauth       │
+│            │◄────────────►│            │        │ Device Flow │
+└────────────┘  WebSocket   └────────────┘        └─────────────┘
+             (json protocol)      ▲
+                                  │
+                                  ▼
+                            ┌────────────┐
+                            │ SQLite DB  │
+                            │            │
+                            │ User Stats │
+                            │            │
+                            └────────────┘
+```
