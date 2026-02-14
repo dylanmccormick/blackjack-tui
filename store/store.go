@@ -11,6 +11,19 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+type UserRepository interface {
+	GetUserByUsername(ctx context.Context, githubID string) (database.User, error)
+	CreateUser(ctx context.Context, arg database.CreateUserParams) (database.User, error)
+	UpdateGithubStarred(ctx context.Context, arg database.UpdateGithubStarredParams) (database.User, error)
+	UpdateLoginStreak(ctx context.Context, arg database.UpdateLoginStreakParams) (database.User, error)
+	UpdateUserAddIncome(ctx context.Context, arg database.UpdateUserAddIncomeParams) (database.User, error)
+	UpdateUserStats(ctx context.Context, arg database.UpdateUserStatsParams) (database.User, error)
+}
+
+type Store struct {
+	DB UserRepository
+}
+
 func NewStore(dbPath, schemaLocation string) (*Store, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
@@ -26,8 +39,8 @@ func NewStore(dbPath, schemaLocation string) (*Store, error) {
 	return &Store{database.New(db)}, nil
 }
 
-type Store struct {
-	DB *database.Queries
+func NewStoreWithRepo(repo UserRepository) (*Store, error) {
+	return &Store{repo}, nil
 }
 
 func calculateIncome(streak int64) int64 {
@@ -45,13 +58,13 @@ func calculateIncome(streak int64) int64 {
 	case streak%7 == 0:
 		return 1000 + baseAmt
 	// 3 day bonus
-	case streak == 3:
+	case streak >= 3:
 		return 200 + baseAmt
 	// 2 day bonus
-	case streak == 2:
+	case streak >= 2:
 		return 100 + baseAmt
 	// 1 day bonus
-	case streak == 1:
+	case streak >= 1:
 		return 50 + baseAmt
 	default:
 		return baseAmt
@@ -225,4 +238,3 @@ func (s *Store) GetOrCreateUser(githubID string) (database.User, error) {
 
 	return user, nil
 }
-
