@@ -2,20 +2,15 @@ package auth
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 )
-
-var clientId = os.Getenv("GIT_CLIENT_ID")
 
 type Session struct {
 	SessionId     string
@@ -31,9 +26,9 @@ type Session struct {
 func (s *Session) String() string {
 	sb := strings.Builder{}
 	sb.WriteString("SessionId: " + s.SessionId)
-	fmt.Fprint(&sb, "\n\t") 
+	fmt.Fprint(&sb, "\n\t")
 	sb.WriteString("auth: " + strconv.FormatBool(s.Authenticated))
-	fmt.Fprint(&sb, "\n\t") 
+	fmt.Fprint(&sb, "\n\t")
 	sb.WriteString("userId: " + s.GithubUserId)
 	return sb.String()
 }
@@ -67,10 +62,10 @@ func HandleAuthCheck(sm *SessionManager, id string, w http.ResponseWriter, r *ht
 	return session.Authenticated
 }
 
-func sendDeviceRequest(session *Session) error {
+func (sm *SessionManager) sendDeviceRequest(session *Session) error {
 	client := &http.Client{Timeout: 20 * time.Second}
 
-	data := map[string]string{"client_id": clientId}
+	data := map[string]string{"client_id": sm.gitClientId}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return err
@@ -106,30 +101,4 @@ func sendDeviceRequest(session *Session) error {
 	session.deviceCode = returnData.DeviceCode
 	session.createdAt = time.Now()
 	return nil
-}
-
-func RunTest() {
-	sm := NewSessionManager()
-	go sm.Run(context.TODO())
-
-	session := &Session{}
-	session.SessionId = "1234"
-	slog.Info("Sending request")
-	sendDeviceRequest(session)
-	slog.Info("sessionInfo", "session", session)
-	sm.AddSession(session)
-
-	ticker := time.NewTicker(20 * time.Second)
-
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest("GET", "/", nil)
-
-	for range ticker.C {
-		if HandleAuthCheck(sm, session.SessionId, w, r) {
-			ticker.Stop()
-			fmt.Printf("%#v\n", session)
-			fmt.Println("AUTHENTICATED BEOTCH")
-			break
-		}
-	}
 }

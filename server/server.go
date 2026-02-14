@@ -18,12 +18,13 @@ import (
 	"github.com/dylanmccormick/blackjack-tui/store"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/joho/godotenv"
+	"gopkg.in/yaml.v3"
 )
 
 var (
-	newline   = []byte{'\n'}
-	space     = []byte{' '}
-	serverLog *slog.Logger
+	newline = []byte{'\n'}
+	space   = []byte{' '}
 )
 
 type manager interface {
@@ -56,32 +57,97 @@ var upgrader = websocket.Upgrader{
 }
 
 type Config struct {
-	SqliteDBPath       string `yaml:"sqlite_db_path"`
-	port               string `yaml:"port"`
-	TableActionTimeout int    `yaml:"table_action_timeout_seconds"`
-	TableDeleteTimeout int    `yaml:"table_auto_delete_timeout_minutes"`
-	StandOnSoft17      bool   `yaml:"stand_on_soft_17"`
-	BetTimeout         int    `yaml:"bet_time_seconds"`
-	DeckCount          int    `yaml:"deck_count"`
-	CutLocation        int    `yaml:"cut_location"`
+	Server struct {
+		SqliteDBPath string `yaml:"sqlite_db_path"`
+		port         string `yaml:"port"`
+		GitClientID  string `yaml:"git_client_id"`
+		SqliteDBName string `yaml:"sqlite_db_name"`
+	} `yaml:"server"`
+
+	TableActionTimeout int  `yaml:"table_action_timeout_seconds"`
+	TableDeleteTimeout int  `yaml:"table_auto_delete_timeout_minutes"`
+	StandOnSoft17      bool `yaml:"stand_on_soft_17"`
+	BetTimeout         int  `yaml:"bet_time_seconds"`
+	DeckCount          int  `yaml:"deck_count"`
+	CutLocation        int  `yaml:"cut_location"`
+
+	// Programming Config Items
+	LogLevel string `yaml:"log_level"`
 }
 
-func RunServer() {
-	handlerOptions := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+type Server struct {
+	SessionManager *auth.SessionManager
+	Lobby          *Lobby
+	Store          *store.Store
+	Config         *Config
+	log            *slog.Logger
+}
+
+func DefaultConfig() Config {
+	return Config{
+		LogLevel: "INFO",
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
-	slog.SetDefault(logger)
-	serverLog = slog.With("component", "server")
+}
 
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, "config", Config{})
+func LoadConfig() Config {
+	err := godotenv.Load(".env")
+	if err != nil {
+		slog.Error("Unable to load env file", "error", err)
+		os.Exit(1)
+	}
+	yamlFile, err := os.ReadFile("config.yaml")
+	if err != nil {
+		slog.Error("Error reading yaml file", "error", err)
+		os.Exit(1)
+	}
+	// Loading all the environment variables into config locations with ${VAR}
+	expandedContent := []byte(os.ExpandEnv(string(yamlFile)))
+	// Set Defaults for Config
+	config := DefaultConfig()
 
-	store, err := store.NewStore(os.Getenv("SQLITE_DB"), "./sql/schema")
+	// Overwrite defaults
+	err = yaml.Unmarshal(expandedContent, &config)
+	if err != nil {
+		slog.Error("Unable to unmarshal yaml file", "error", err)
+		os.Exit(1)
+	}
+	return config
+}
+
+func InitializeServer() *Server {
+	Config := LoadConfig()
+	Store, err := store.NewStore(os.Getenv("SQLITE_DB"), "./sql/schema")
 	if err != nil {
 		slog.Error("Unable to load or create datastore", "error", err)
 		os.Exit(1)
 	}
+	SessionManager := auth.NewSessionManager(Config.Server.GitClientID)
+	Lobby := newLobby(Store)
+	var level slog.Level
+	err = level.UnmarshalText([]byte(Config.LogLevel))
+	if err != nil {
+		slog.Error("error parsing log level", "error", err)
+		os.Exit(1)
+	}
+	handlerOptions := &slog.HandlerOptions{
+		Level: level,
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, handlerOptions))
+	slog.SetDefault(logger)
+	serverLog := slog.With("component", "server")
+	return &Server{
+		Config:         &Config,
+		SessionManager: SessionManager,
+		Lobby:          Lobby,
+		Store:          Store,
+		log:            serverLog,
+	}
+}
+
+func (s *Server) Run() {
+	slog.Debug("Server loaded with config", "config", s.Config)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "config", s.Config)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -89,17 +155,15 @@ func RunServer() {
 	// signal handler
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	lobby := newLobby(store)
-	sessionManager := auth.NewSessionManager()
 
 	var wg sync.WaitGroup
 
 	wg.Go(func() {
-		lobby.run(ctx)
+		s.Lobby.run(ctx)
 	})
 
 	wg.Go(func() {
-		sessionManager.Run(ctx)
+		s.SessionManager.Run(ctx)
 	})
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -107,28 +171,28 @@ func RunServer() {
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		serverLog.Info("Received connection")
+		s.log.Info("Received connection")
 		// todo... validate logged in
-		serveWs(sessionManager, lobby, w, r, store)
+		s.serveWs(w, r)
 	})
 
 	http.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
-		serverLog.Info("Received login request")
-		session := auth.LoginHandler(w, r)
-		sessionManager.AddSession(session)
+		s.log.Info("Received login request")
+		session := auth.LoginHandler(w, r, s.SessionManager)
+		s.SessionManager.AddSession(session)
 	})
 
 	http.HandleFunc("/auth/status", func(w http.ResponseWriter, r *http.Request) {
-		serverLog.Debug("getting status for request")
+		s.log.Debug("getting status for request")
 		id := r.URL.Query().Get("id")
-		auth.HandleAuthCheck(sessionManager, id, w, r)
+		auth.HandleAuthCheck(s.SessionManager, id, w, r)
 	})
 
 	server := &http.Server{Addr: ":42069"}
 	go server.ListenAndServe()
 
 	<-sigChan
-	serverLog.Info("Received shutdown signal")
+	s.log.Info("Received shutdown signal")
 	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -136,26 +200,25 @@ func RunServer() {
 	server.Shutdown(shutdownCtx)
 
 	wg.Wait()
-	serverLog.Info("Shutdown Complete")
+	s.log.Info("Shutdown Complete")
 }
 
-func generateId(c *websocket.Conn) uuid.UUID {
-	// TODO: Generate uuid from websocket so it's sticky... figure that out later
+func generateId() uuid.UUID {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
-		serverLog.Error("ERROR GENERATING UUID", "error", err)
+		slog.Error("ERROR GENERATING UUID", "error", err)
 	}
 	return uuid
 }
 
-func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.Request, store *store.Store) {
+func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
 	// CHECK SESSION MANAGER FOR KEY
 	sessionId := r.URL.Query().Get("session")
-	session, err := sm.GetSession(sessionId)
+	session, err := s.SessionManager.GetSession(sessionId)
 	if err != nil {
 		// TODO: return a rejection response to requester
-		serverLog.Error("error with session", "error", err)
+		s.log.Error("error with session", "error", err)
 		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
 		return
 	}
@@ -166,15 +229,15 @@ func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.R
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		serverLog.Error("An error occurred upgrading the http connection", "error", err)
+		s.log.Error("An error occurred upgrading the http connection", "error", err)
 		// TODO: this should send some sort of error back to the client
 		return
 	}
 	client := &Client{
 		conn:     conn,
 		send:     make(chan *protocol.TransportMessage, 10),
-		id:       generateId(conn),
-		manager:  l,
+		id:       generateId(),
+		manager:  s.Lobby,
 		log:      slog.With("component", "client"),
 		username: session.GithubUserId,
 	}
@@ -183,7 +246,7 @@ func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.R
 	go client.readPump()
 	go client.writePump()
 
-	u, income, err := store.ProcessLogin(context.TODO(), client.username)
+	u, income, err := s.Store.ProcessLogin(context.TODO(), client.username)
 	if err != nil {
 		slog.Error("error processing login", "error", err)
 	}
@@ -198,7 +261,7 @@ func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.R
 
 	client.send <- pack
 
-	isStarred, err := sm.CheckStarredStatus(context.TODO(), session)
+	isStarred, err := s.SessionManager.CheckStarredStatus(context.TODO(), session)
 	if err != nil {
 		slog.Error("error processing repo stars", "error", err)
 	}
@@ -206,7 +269,7 @@ func serveWs(sm *auth.SessionManager, l *Lobby, w http.ResponseWriter, r *http.R
 		slog.Info("USER STARRED THE REPO!")
 	}
 
-	newStar, err := store.UpdateUserStarred(context.TODO(), client.username)
+	newStar, err := s.Store.UpdateUserStarred(context.TODO(), client.username)
 	if newStar {
 		slog.Info("Thank you for the star kind user", "user", client.username)
 		msg = fmt.Sprintf("Thank you for starring the repo! You have earned %d bonus", 5000)

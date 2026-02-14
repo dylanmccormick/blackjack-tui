@@ -12,16 +12,18 @@ import (
 )
 
 type SessionManager struct {
-	sessions map[string]*Session
-	log      *slog.Logger
-	Commands chan *SessionCmd
+	sessions    map[string]*Session
+	log         *slog.Logger
+	Commands    chan *SessionCmd
+	gitClientId string
 }
 
-func NewSessionManager() *SessionManager {
+func NewSessionManager(gitClientID string) *SessionManager {
 	return &SessionManager{
-		sessions: make(map[string]*Session),
-		log:      slog.With("component", "sessionManager"),
-		Commands: make(chan *SessionCmd, 10),
+		sessions:    make(map[string]*Session),
+		log:         slog.With("component", "sessionManager"),
+		Commands:    make(chan *SessionCmd, 10),
+		gitClientId: gitClientID,
 	}
 }
 
@@ -75,7 +77,7 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 
 	grantType := fmt.Sprintf("urn:ietf:params:oauth:grant-type:%s", "device_code")
 
-	data := map[string]string{"client_id": clientId, "device_code": s.deviceCode, "grant_type": grantType}
+	data := map[string]string{"client_id": sm.gitClientId, "device_code": s.deviceCode, "grant_type": grantType}
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return false, err

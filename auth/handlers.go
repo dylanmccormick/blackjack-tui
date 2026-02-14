@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) *Session {
+func LoginHandler(w http.ResponseWriter, r *http.Request, sm *SessionManager) *Session {
 	// 1. create session id
 	sessionUUID, err := uuid.NewUUID()
 	if err != nil {
@@ -23,7 +23,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) *Session {
 		Authenticated: false,
 	}
 	// 2. send GH request
-	err = sendDeviceRequest(&session)
+	err = sm.sendDeviceRequest(&session)
 	if err != nil {
 		slog.Error("error in handler", "error", err)
 		return nil
