@@ -99,8 +99,8 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		rm.table, cmd = rm.table.Update(msg)
 		cmds = append(cmds, cmd)
 	case tea.WindowSizeMsg:
-		rm.width = msg.Width
-		rm.height = msg.Height
+		rm.width = msg.Width - 1
+		rm.height = msg.Height - 1
 		slog.Info("Sizes:", "t_width", msg.Width, "t_height", msg.Height, "rootwidth", rm.width, "rootheight", rm.height)
 	case tea.KeyMsg:
 		// Top Level Keys. Kill the program type keys
@@ -173,8 +173,8 @@ func (rm *RootModel) View() string {
 		// return style.Render(mainView)
 	}
 	mainViewStyle := lipgloss.NewStyle().
-		Width((rm.width-6)/2).
-		Height(rm.height*2/3).
+		Width(((rm.width-6)/2)-2).
+		Height((rm.height*2/3)-2).
 		Align(lipgloss.Center, lipgloss.Center).
 		Border(lipgloss.RoundedBorder())
 
@@ -232,4 +232,3 @@ func RunTui(mock bool) {
 		os.Exit(1)
 	}
 }
-

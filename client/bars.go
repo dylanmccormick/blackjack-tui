@@ -26,8 +26,8 @@ func (rb *RightBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		rb.Width = (msg.Width - 8) / 4
-		rb.Height = msg.Height * 2 / 3
+		rb.Width = ((msg.Width - 8) / 4) - 2
+		rb.Height = (msg.Height * 2 / 3) - 2
 	case protocol.PopUpDTO:
 		rb.Messages = append(rb.Messages, msg)
 		cmd = PopUpTimer()
@@ -68,7 +68,7 @@ func (rb *RightBar) renderPopupMessage(message, color string) string {
 		Foreground(lipgloss.Color(foreground)).
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(color)).
-		Width((rb.Width) - 4).
+		Width((rb.Width) - 6).
 		Height(6).
 		Align(lipgloss.Center)
 
@@ -78,7 +78,7 @@ func (rb *RightBar) renderPopupMessage(message, color string) string {
 }
 
 func (rb *RightBar) View() string {
-	style := lipgloss.NewStyle().Width(rb.Width).Height(rb.Height).Align(lipgloss.Right)
+	style := lipgloss.NewStyle().Width(rb.Width).Height(rb.Height).Align(lipgloss.Center)
 	messages := rb.renderMultiplePopUps()
 	return style.Render(messages)
 }

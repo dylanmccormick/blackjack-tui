@@ -33,8 +33,8 @@ func (sm *SplashModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ChangeRootPageMsg:
 		cmds = append(cmds, AddCommands(sm.Commands))
 	case tea.WindowSizeMsg:
-		sm.Height = (msg.Height * 3 / 4) - 6
-		sm.Width = (msg.Width-6)/2 - 4
+		sm.Height = (msg.Height * 3 / 4) - 7
+		sm.Width = ((msg.Width - 6) / 2) - 6
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:

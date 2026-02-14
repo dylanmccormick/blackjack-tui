@@ -55,7 +55,7 @@ func (hm *HeaderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		hm.Width = (msg.Width - 6) / 2
+		hm.Width = (msg.Width - 8) / 2
 	case AuthPollMsg:
 		hm.Username = msg.UserName
 	}
