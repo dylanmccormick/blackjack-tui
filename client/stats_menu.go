@@ -49,6 +49,10 @@ func (sm *StatsMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case ChangeMenuPage:
+		cmds = append(cmds, AddCommands(sm.Commands))
+	case ChangeRootPageMsg:
+		cmds = append(cmds, AddCommands(sm.Commands))
 	case protocol.StatsDTO:
 		slog.Info("Updating stats in stats menu")
 		sm.Stats = msg
