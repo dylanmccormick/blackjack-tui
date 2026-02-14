@@ -33,4 +33,4 @@ COPY . .
 EXPOSE 42069
 
 # Command to run the application when the container starts
-CMD ["./blackjack-tui", "-f", "server"]
+CMD ["./blackjack-tui", "server"]
