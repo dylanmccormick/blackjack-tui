@@ -302,7 +302,7 @@ func (m *MockBackendClient) StartAuth(_ string) tea.Msg {
 }
 
 type MockBackendClient struct {
-	wsOut      chan tea.Msg
+	wsOut      chan *protocol.TransportMessage
 	conn       *websocket.Conn
 	disconnect chan struct{}
 	state      mockState
