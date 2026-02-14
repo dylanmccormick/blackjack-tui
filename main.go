@@ -3,19 +3,28 @@ package main
 import (
 	"flag"
 
+	"github.com/alecthomas/kong"
 	"github.com/dylanmccormick/blackjack-tui/client"
 	"github.com/dylanmccormick/blackjack-tui/server"
 )
 
+var CLI struct {
+	Tui struct {
+		Mock bool `help:"Run in mock mode"`
+	} `cmd:"Run the blackjack TUI"`
+	Server struct{} `cmd:"Run the blackjack Server"`
+}
+
 func main() {
-	function := flag.String("f", "tui", "use this flag to determine what function the app will serve. Available options: 'tui', 'server'")
-	mockFlg := flag.Bool("mock", false, "add this flag to run in MOCK mode. You will not be able to connect to a websocket")
+	ctx := kong.Parse(&CLI)
 	flag.Parse()
-	switch *function {
+	switch ctx.Command() {
 	case "tui":
-		client.RunTui(mockFlg)
+		client.RunTui(CLI.Tui.Mock)
 	case "server":
 		s := server.InitializeServer()
 		s.Run()
+	default:
+		panic(ctx.Command())
 	}
 }

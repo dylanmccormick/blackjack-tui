@@ -211,7 +211,7 @@ type TuiPlayer struct {
 	Current bool
 }
 
-func RunTui(mock *bool) {
+func RunTui(mock bool) {
 	var rm *RootModel
 	f, err := tea.LogToFile("debug.log", "debug")
 	if err != nil {
@@ -219,7 +219,7 @@ func RunTui(mock *bool) {
 		os.Exit(1)
 	}
 	defer f.Close()
-	if *mock {
+	if mock {
 		log.Println("running in mock mode")
 		rm = NewRootModel(NewMockTransporter())
 	} else {
