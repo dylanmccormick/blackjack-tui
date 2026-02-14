@@ -7,7 +7,7 @@ server:
   git_client_id: ${GIT_CLIENT_ID}
   sqlite_db_name: ${SQLITE_DB}
 
-log_level: DEBUG
+log_level: INFO
 
 table_action_timeout_seconds: 30
 table_auto_delete_timeout_minutes: 5

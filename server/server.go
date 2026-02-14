@@ -92,8 +92,7 @@ func DefaultConfig() Config {
 func LoadConfig() Config {
 	err := godotenv.Load(".env")
 	if err != nil {
-		slog.Error("Unable to load env file", "error", err)
-		os.Exit(1)
+		slog.Warn("No env file found", "error", err)
 	}
 	yamlFile, err := os.ReadFile("config.yaml")
 	if err != nil {
