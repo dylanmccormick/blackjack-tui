@@ -7,6 +7,17 @@ import (
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 )
 
+type AuthLoginMsg struct {
+	UserCode  string
+	Url       string
+	SessionId string
+}
+
+type AuthPollMsg struct {
+	Authenticated bool
+	UserName      string
+}
+
 type ReloadStatsMsg struct{}
 
 func ReloadStatsCmd() tea.Cmd {

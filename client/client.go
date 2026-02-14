@@ -98,8 +98,6 @@ func (rm *RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 		rm.table, cmd = rm.table.Update(msg)
 		cmds = append(cmds, cmd)
-		rm.headerModel, cmd = rm.headerModel.Update(msg)
-		cmds = append(cmds, cmd)
 	case tea.WindowSizeMsg:
 		rm.width = msg.Width
 		rm.height = msg.Height
@@ -235,13 +233,3 @@ func RunTui(mock *bool) {
 	}
 }
 
-type AuthLoginMsg struct {
-	UserCode  string
-	Url       string
-	SessionId string
-}
-
-type AuthPollMsg struct {
-	Authenticated bool
-	UserName      string
-}

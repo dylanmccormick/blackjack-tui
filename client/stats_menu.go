@@ -29,7 +29,7 @@ func NewStatsMenu() *StatsMenuModel {
 }
 
 func (sm *StatsMenuModel) Init() tea.Cmd {
-	return nil
+	return ReloadStatsCmd()
 }
 
 func (sm *StatsMenuModel) View() string {

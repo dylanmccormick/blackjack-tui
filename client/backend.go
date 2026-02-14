@@ -165,6 +165,52 @@ func (ws *WsBackendClient) PollAuth() tea.Msg {
 	return AuthPollMsg{false, ""}
 }
 
+func (ws *WsBackendClient) PollHealthz() tea.Msg {
+	fullURL, err := url.JoinPath(ws.serverUrl.String(), "healthz")
+	if err != nil {
+		slog.Debug("error creating url path", "error", err)
+		return fmt.Errorf("")
+	}
+	ticker := time.NewTicker(5 * time.Second)
+	client := &http.Client{Timeout: 20 * time.Second}
+	for range ticker.C {
+
+		slog.Info("Full url", "url", fullURL)
+		req, err := http.NewRequest("GET", fullURL, nil)
+		if err != nil {
+			slog.Debug("error sending request", "error", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("X-Session-Id", ws.sessionId)
+		q := req.URL.Query()
+		q.Add("id", ws.sessionId)
+		req.URL.RawQuery = q.Encode()
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Printf("Error sending request: %s\n", err)
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("Error reading response body: %s\n", err)
+		}
+		slog.Info("Reading poll auth:", "body", body)
+
+		var data struct {
+			Message string `json:"message"`
+		}
+
+		err = json.Unmarshal(body, &data)
+		if err != nil {
+			slog.Error("error loading json", "error", err)
+		}
+
+	}
+	return AuthPollMsg{false, ""}
+}
+
 // this seems like a bad thing to do, but I'm not sure how else to interact with an interface
 func (ws *WsBackendClient) QueueData(data *protocol.TransportMessage) {
 	ws.data <- data
@@ -256,7 +302,7 @@ func (m *MockBackendClient) StartAuth(_ string) tea.Msg {
 }
 
 type MockBackendClient struct {
-	wsOut      chan *protocol.TransportMessage
+	wsOut      chan tea.Msg
 	conn       *websocket.Conn
 	disconnect chan struct{}
 	state      mockState

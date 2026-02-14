@@ -104,6 +104,8 @@ func NewLeftBar(height, width int) *LeftBar {
 func (lb *LeftBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
+	case AuthPollMsg:
+		lb.Username = msg.UserName
 	case tea.WindowSizeMsg:
 		lb.Width = (msg.Width - 8) / 4
 		lb.Height = msg.Height * 2 / 3
@@ -113,7 +115,7 @@ func (lb *LeftBar) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (lb *LeftBar) View() string {
-	style := lipgloss.NewStyle().Width(lb.Width - 2).Height(lb.Height-2).MarginLeft(2).MarginTop(2)
+	style := lipgloss.NewStyle().Width(lb.Width - 2).Height(lb.Height - 2).MarginLeft(2).MarginTop(2)
 	var sb strings.Builder
 	if lb.Username == "" {
 		sb.WriteString("Not logged in")
@@ -122,8 +124,6 @@ func (lb *LeftBar) View() string {
 		sb.WriteString(lb.Username)
 	}
 	sb.WriteString("\n")
-	sb.WriteString("Server Status: ")
-	sb.WriteString("TODO")
 	return style.Render(sb.String())
 }
 
