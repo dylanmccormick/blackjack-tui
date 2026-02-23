@@ -16,26 +16,55 @@ My goal in creating this project is to learn more about how to design software w
 
 ## Quick Start
 
+Play on Public Server
+go install github.com/dylanmccormick/blackjack-tui@latest
+blackjack-tui tui
+Run Your Own Server
+
+### 1. Get the code
+
+```
+git clone https://github.com/dylanmccormick/blackjack-tui
+cd blackjack-tui
+```
+
+### 2. Set up environment
+
+`cp .env.example .env`
+
+### Edit .env with your GitHub OAuth Client ID
+
+```bash
+# GitHub OAuth Application Client ID
+# Create one at: https://github.com/settings/developers
+GIT_CLIENT_ID=your_client_id_here
+# Database location
+SQLITE_DB=./blackjack-db.db
+```
+
+### Run server
+
 The server will automatically run on localhost:42069. You can change the `config.yaml` file to update what port you want the server to work on.
+You could update config.yaml to change any of the settings for the server
 To run the server you can run the command:
-`go run . -f=server`
 
-the -f flag will set the mode for your command to determine whether to run the client or the server.
+`go run . server`
 
-To run the client TUI:
-`go run .`
+In another terminal, run client
 
-To run the client in mock mode:
-`go run . -f=tui --mock`
+`go run . tui`
 
 ## Usage
 
-### Flags:
+### Arguments:
 
--f -- the format you want to run the application in.
+tui - This argument will run the TUI for the game
+server - this argument will run the server for the game
+
 Available Options: "tui", "server"
 
 --mock -- run the TUI in mock mode to be able to see the changes you make without needing to connect to a server
+`blackjack-tui tui --mock`
 
 ## How to play
 
