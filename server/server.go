@@ -217,11 +217,11 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	session, err := s.SessionManager.GetSession(sessionId)
 	if err != nil {
 		s.log.Error("error with session", "error", err)
-		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		http.Error(w, "Authentication Required", http.StatusUnauthorized)
 		return
 	}
 	if !session.Authenticated {
-		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
+		http.Error(w, "Authentication Required", http.StatusUnauthorized)
 		return
 	}
 

@@ -177,7 +177,7 @@ func (s *Store) UpdateUserStarred(ctx context.Context, githubID string) (bool, e
 }
 
 func (s *Store) ProcessLogin(ctx context.Context, githubID string) (database.User, int, error) {
-	user, err := s.GetOrCreateUser(githubID)
+	user, err := s.GetOrCreateUser(ctx, githubID)
 	if err != nil {
 		return user, -1, err
 	}
@@ -216,7 +216,7 @@ func (s *Store) ProcessLogin(ctx context.Context, githubID string) (database.Use
 	return user, int(income), nil
 }
 
-func (s *Store) GetOrCreateUser(githubID string) (database.User, error) {
+func (s *Store) GetOrCreateUser(ctx context.Context, githubID string) (database.User, error) {
 	user, err := s.DB.GetUserByUsername(context.Background(), githubID)
 	if err == sql.ErrNoRows {
 		slog.Info("User not found in database", "githubID", githubID)
@@ -226,7 +226,7 @@ func (s *Store) GetOrCreateUser(githubID string) (database.User, error) {
 			UpdatedAt: time.Now(),
 			LastLogin: time.Now(),
 		}
-		user, err = s.DB.CreateUser(context.Background(), params)
+		user, err = s.DB.CreateUser(ctx, params)
 		if err != nil {
 			slog.Error("Unable to create user in DB", "githubID", githubID)
 			return user, err

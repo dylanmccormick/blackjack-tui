@@ -1,0 +1,27 @@
+version: "3.8"
+services:
+  blackjack-app:
+    build: .
+    image: blackjack-tui:latest
+    environment:
+      - GIT_CLIENT_ID=${GIT_CLIENT_ID} # Load from .env file
+      - SQLITE_DB=/db/blackjack-db.db
+    volumes:
+      - ./database:/db
+    ports:
+      - "42069:42069"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://localhost:42069/healthz",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

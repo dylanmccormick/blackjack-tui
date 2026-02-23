@@ -362,7 +362,7 @@ func (t *Table) RegisterClient(client *Client) {
 	t.log.Info("attempting to register client", "client", client.id)
 	playerReconnecting := t.game.GetPlayer(client.id) != nil
 	if !playerReconnecting {
-		user, err := t.db.GetOrCreateUser(client.username)
+		user, err := t.db.GetOrCreateUser(context.Background(), client.username)
 		if err != nil {
 			slog.Error("error getting user", "username", client.username)
 			// probably should crash here?

@@ -76,7 +76,7 @@ func (ws *WsBackendClient) StartAuth(u string) tea.Msg {
 	fullURL := ws.serverUrl.JoinPath(endpoint)
 	if err != nil {
 		ws.log.Debug("error creating url path", "error", err)
-		return fmt.Errorf("")
+		return fmt.Errorf("failed to create url: %w", err)
 	}
 	ws.log.Info("Attmepting to connect to fullUrl", "url", fullURL.String(), "serverUrl", ws.serverUrl, "endpoint", endpoint)
 
@@ -121,7 +121,7 @@ func (ws *WsBackendClient) PollAuth() tea.Msg {
 	fullURL, err := url.JoinPath(ws.serverUrl.String(), "auth", "status")
 	if err != nil {
 		ws.log.Debug("error creating url path", "error", err)
-		return fmt.Errorf("")
+		return fmt.Errorf("failed to create url: %w", err)
 	}
 	ticker := time.NewTicker(1 * time.Second)
 	client := &http.Client{Timeout: 20 * time.Second}
@@ -172,7 +172,7 @@ func (ws *WsBackendClient) PollHealthz() tea.Msg {
 	fullURL, err := url.JoinPath(ws.serverUrl.String(), "healthz")
 	if err != nil {
 		ws.log.Debug("error creating url path", "error", err)
-		return fmt.Errorf("")
+		return fmt.Errorf("failed to create url: %w", err)
 	}
 	ticker := time.NewTicker(5 * time.Second)
 	client := &http.Client{Timeout: 20 * time.Second}

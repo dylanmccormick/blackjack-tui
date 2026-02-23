@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"os"
 
 	"github.com/alecthomas/kong"
 	"github.com/dylanmccormick/blackjack-tui/client"
@@ -25,6 +27,7 @@ func main() {
 		s := server.InitializeServer()
 		s.Run()
 	default:
-		panic(ctx.Command())
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", ctx.Command())
+		os.Exit(1)
 	}
 }
