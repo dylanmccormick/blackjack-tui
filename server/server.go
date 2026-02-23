@@ -166,12 +166,11 @@ func (s *Server) Run() {
 	})
 
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		auth.WriteHttpResponse(w, http.StatusOK, "{'message': 'healthy'}")
+		auth.WriteHttpResponse(w, http.StatusOK, `{"message": "healthy"}`)
 	})
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.log.Info("Received connection")
-		// todo... validate logged in
 		s.serveWs(w, r)
 	})
 
@@ -213,23 +212,24 @@ func generateId() uuid.UUID {
 func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	// serve ws should take the client and register them with the table. They should then go through the onboarding process... (login, authenticate, provide a username)
 	// CHECK SESSION MANAGER FOR KEY
+	ctx := context.Background()
 	sessionId := r.URL.Query().Get("session")
 	session, err := s.SessionManager.GetSession(sessionId)
 	if err != nil {
-		// TODO: return a rejection response to requester
 		s.log.Error("error with session", "error", err)
 		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
 		return
 	}
 	if !session.Authenticated {
-		// TODO: return a rejection response to requester
 		http.Error(w, "Unauthenticated", http.StatusUnauthorized)
 		return
 	}
+
+	ctx = context.WithValue(ctx, "sessionId", sessionId)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		s.log.Error("An error occurred upgrading the http connection", "error", err)
-		// TODO: this should send some sort of error back to the client
+		http.Error(w, "Error upgrading connection", http.StatusInternalServerError)
 		return
 	}
 	client := &Client{
@@ -241,11 +241,12 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		username: session.GithubUserId,
 	}
 	client.manager.register(client)
+	ctx = context.WithValue(ctx, "ghUsername", client.username)
 
-	go client.readPump()
-	go client.writePump()
+	go client.readPump(ctx)
+	go client.writePump(ctx)
 
-	u, income, err := s.Store.ProcessLogin(context.TODO(), client.username)
+	u, income, err := s.Store.ProcessLogin(ctx, client.username)
 	if err != nil {
 		slog.Error("error processing login", "error", err)
 	}
@@ -260,7 +261,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 
 	client.send <- pack
 
-	isStarred, err := s.SessionManager.CheckStarredStatus(context.TODO(), session)
+	isStarred, err := s.SessionManager.CheckStarredStatus(ctx, session)
 	if err != nil {
 		slog.Error("error processing repo stars", "error", err)
 	}
@@ -268,7 +269,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		slog.Info("USER STARRED THE REPO!")
 	}
 
-	newStar, err := s.Store.UpdateUserStarred(context.TODO(), client.username)
+	newStar, err := s.Store.UpdateUserStarred(ctx, client.username)
 	if newStar {
 		slog.Info("Thank you for the star kind user", "user", client.username)
 		msg = fmt.Sprintf("Thank you for starring the repo! You have earned %d bonus", 5000)
@@ -282,7 +283,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (c *Client) readPump() {
+func (c *Client) readPump(ctx context.Context) {
 	defer func() {
 		c.mu.Lock()
 		mgr := c.manager
@@ -297,7 +298,7 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.log.Error("error with websocket", "error", err)
+				c.log.Error("error with websocket", "error", err, "sessionId", ctx.Value("sessionId"), "client", ctx.Value("ghUsername"))
 			}
 			break
 		}
@@ -318,7 +319,7 @@ func unpackMessage(msg []byte) (*protocol.TransportMessage, error) {
 	return jsonMsg, nil
 }
 
-func (c *Client) writePump() {
+func (c *Client) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -333,11 +334,11 @@ func (c *Client) writePump() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			c.log.Debug("Writing message", "message", message)
+			c.log.Debug("Writing message", "message", message, "sessionId", ctx.Value("sessionId"), "clientId", ctx.Value("ghUsername"))
 			c.conn.WriteJSON(message)
 			for range len(c.send) {
 				msg := <-c.send
-				c.log.Debug("Writing message", "message", msg)
+				c.log.Debug("Writing message", "message", msg, "sessionId", ctx.Value("sessionId"), "clientId", ctx.Value("ghUsername"))
 				c.conn.WriteJSON(msg)
 			}
 		case <-ticker.C:

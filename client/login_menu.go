@@ -63,7 +63,6 @@ func (lm *LoginMenu) Update(msg tea.Msg) (*LoginMenu, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			// TODO: figure this out
 			cmd = nil
 			cmds = append(cmds, cmd)
 		case tea.KeyRunes:

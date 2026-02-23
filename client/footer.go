@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"log"
 	"slices"
 
 	tea "github.com/charmbracelet/bubbletea"

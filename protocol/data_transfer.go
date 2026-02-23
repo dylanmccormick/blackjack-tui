@@ -63,6 +63,12 @@ func CardToDTO(c game.Card) CardDTO {
 
 func UserToStatsDTO(u *database.User) StatsDTO {
 	slog.Info("Translating stats", "user", u)
+	var winPercentage int
+	if u.HandsPlayed > 0 {
+		winPercentage = int(100 * u.HandsWon / u.HandsPlayed)
+	} else {
+		winPercentage = 0
+	}
 	return StatsDTO{
 		LifetimeBet:   int(u.AmountBetLifetime),
 		LifetimeLoss:  int(u.AmountLostLifetime),
@@ -72,7 +78,7 @@ func UserToStatsDTO(u *database.User) StatsDTO {
 		HandsPlayed:   int(u.HandsPlayed),
 		HandsWon:      int(u.HandsWon),
 		HandsLost:     int(u.HandsLost),
-		WinPercentage: int(100 * u.HandsWon / u.HandsPlayed),
+		WinPercentage: winPercentage,
 	}
 }
 

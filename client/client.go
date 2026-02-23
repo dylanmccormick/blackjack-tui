@@ -1,8 +1,6 @@
 package client
 
 import (
-	"fmt"
-	"log"
 	"log/slog"
 	"os"
 

@@ -46,7 +46,7 @@ func NewMenuModel() *MenuModel {
 		page:          mainMenu,
 		MainMenu:      NewMainMenu(),
 		ServerMenu:    NewServerMenu(),
-		TableMenu:     NewTableMenu(0, 0), // TODO
+		TableMenu:     NewTableMenu(0, 0),
 		SettingsMenu:  NewSettingsMenu(),
 		StatsMenu:     NewStatsMenu(),
 	}

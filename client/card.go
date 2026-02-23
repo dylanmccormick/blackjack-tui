@@ -1,7 +1,6 @@
 package client
 
 import (
-	"log"
 	"log/slog"
 	"strings"
 

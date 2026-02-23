@@ -89,7 +89,6 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if sm.state != "login" {
 				if len(sm.savedServers) > 0 {
 					server = sm.savedServers[sm.currServerIndex]
-					// TODO: join a saved server
 					cmds = append(cmds, RequestLogin(server))
 					slog.Info("Attempting to join server", "server", server)
 				}
