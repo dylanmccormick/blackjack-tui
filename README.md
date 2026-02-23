@@ -1,6 +1,8 @@
 # Blackjack TUI
 
 ![Tests](https://github.com/dylanmccormick/blackjack-tui/actions/workflows/test.yml/badge.svg)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/dylanmccormick/blackjack-tui)](https://github.com/dylanmccormick/blackjack-tui)
+[![License](https://img.shields.io/github/license/dylanmccormick/blackjack-tui)](https://github.com/dylanmccormick/blackjack-tui/blob/master/LICENSE)
 
 ![demo](./demo.gif)
 
