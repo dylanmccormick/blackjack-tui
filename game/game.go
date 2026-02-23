@@ -15,6 +15,11 @@ type (
 	PlayerState int
 )
 
+type GameConfig struct {
+	DeckCount   int
+	CutLocation int
+}
+
 const (
 	WAIT_FOR_START GameState = iota
 	WAITING_FOR_BETS
@@ -55,19 +60,17 @@ type Game struct {
 	Deck               *Deck
 	Players            []*Player
 	DealerHand         *Hand
-	BetTime            int
 	CurrentPlayerIndex int
 	activePlayers      []*Player
 }
 
-func NewGame() *Game {
+func NewGame(config GameConfig) *Game {
 	slog.Debug("Creating game")
 	return &Game{
 		State:              WAIT_FOR_START,
-		Deck:               CreateDeck(DECK_COUNT, CUT_LOCATION), // TODO: Get from config file
-		Players:            make([]*Player, PLAYER_LIMIT),        // This can change. Maybe a table can have 6 players?
+		Deck:               CreateDeck(config.DeckCount, config.CutLocation),
+		Players:            make([]*Player, PLAYER_LIMIT),
 		DealerHand:         &Hand{},
-		BetTime:            30, // TODO: Get from Config file
 		CurrentPlayerIndex: 0,
 	}
 }

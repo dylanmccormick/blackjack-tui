@@ -144,7 +144,7 @@ func (l *Lobby) createTable(ctx context.Context, name string) {
 		l.log.Warn("Table name already exists... not creating new table")
 		return
 	}
-	t := newTable(name, l, l.store)
+	t := newTable(ctx, name, l, l.store)
 	tableCtx, tableCancel := context.WithCancel(ctx)
 	t.cancel = tableCancel
 	l.tables[name] = t

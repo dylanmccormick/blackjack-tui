@@ -13,6 +13,12 @@ type Deck struct {
 }
 
 func CreateDeck(numDecks, threshold int) *Deck {
+	if numDecks == 0 {
+		numDecks = DECK_COUNT
+	}
+	if threshold == 0 {
+		threshold = CUT_LOCATION
+	}
 	d := &Deck{Cards: make([]Card, 52*numDecks), Threshold: threshold}
 	i := 0
 	for range numDecks {

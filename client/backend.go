@@ -373,7 +373,6 @@ func generateGameData() []*protocol.TransportMessage {
 		"kevin",
 	}
 
-	// todo
 	players := []protocol.PlayerDTO{
 		{
 			Bet:    5,

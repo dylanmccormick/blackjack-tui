@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"encoding/json"
-	"log"
 	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,21 +24,21 @@ func ReceiveMessage(sub <-chan *protocol.TransportMessage) tea.Cmd {
 			body := []*protocol.TableDTO{}
 			err := json.Unmarshal(msg.Data, &body)
 			if err != nil {
-				log.Printf("ERROR: %v", err)
+				slog.Error("error unmarshalling body", "error", err)
 			}
 			return body
 		case protocol.MsgPopUp:
 			body := protocol.PopUpDTO{}
 			err := json.Unmarshal(msg.Data, &body)
 			if err != nil {
-				log.Printf("ERROR: %v", err)
+				slog.Error("error unmarshalling body", "error", err)
 			}
 			return body
 		case protocol.MsgUserStats:
 			body := protocol.StatsDTO{}
 			err := json.Unmarshal(msg.Data, &body)
 			if err != nil {
-				log.Printf("ERROR: %v", err)
+				slog.Error("error unmarshalling body", "error", err)
 			}
 			slog.Info("Parsed user stats", "body", body)
 			return body

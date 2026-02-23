@@ -124,7 +124,6 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 			SessionId: s.SessionId,
 
 			Authenticated: true,
-			GHUserId:      "#TODO",
 			GHToken:       returnData.AccessToken,
 		}
 	}

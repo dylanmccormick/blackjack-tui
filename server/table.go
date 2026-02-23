@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	ACTION_TIMEOUT    = 30 * time.Second
-	TABLE_TIMEOUT     = 5 * time.Minute
-	REFRESH_TICK_RATE = 5 * time.Second
+	ACTION_TIMEOUT    = 30
+	TABLE_TIMEOUT     = 5
+	REFRESH_TICK_RATE = 5
 )
 
 type inboundMessage struct {
@@ -30,7 +30,6 @@ type Table struct {
 	registerChan   chan *Client
 	unregisterChan chan *Client
 	inbound        chan inboundMessage
-	outbound       chan []byte
 	id             string
 	cancel         context.CancelFunc
 	lobby          *Lobby
@@ -46,19 +45,34 @@ type Table struct {
 	db  *store.Store
 }
 
-func newTable(name string, lobby *Lobby, store *store.Store) *Table {
+func newTable(ctx context.Context, name string, lobby *Lobby, store *store.Store) *Table {
+	cfg := ctx.Value("config")
+	config, ok := cfg.(Config)
+	if !ok {
+		slog.Error("context contains wrong type for config")
+		config = Config{
+			BetTimeout:         ACTION_TIMEOUT,
+			TableActionTimeout: ACTION_TIMEOUT,
+			TableDeleteTimeout: TABLE_TIMEOUT,
+		}
+	}
+
+	gameConfig := game.GameConfig{
+		DeckCount:   config.DeckCount,
+		CutLocation: config.CutLocation,
+	}
+
 	t := &Table{
 		clients:        make(map[*Client]bool),
 		idToClient:     make(map[uuid.UUID]*Client),
 		registerChan:   make(chan *Client),
 		unregisterChan: make(chan *Client),
 		inbound:        make(chan inboundMessage),
-		outbound:       make(chan []byte), // TODO: This should also be transport message type
 		id:             name,
-		game:           game.NewGame(),
-		betTimer:       time.NewTimer(ACTION_TIMEOUT),
-		actionTimer:    time.NewTimer(ACTION_TIMEOUT),
-		tableTimer:     time.NewTimer(TABLE_TIMEOUT),
+		game:           game.NewGame(gameConfig),
+		betTimer:       time.NewTimer(time.Duration(config.BetTimeout) * time.Second),
+		actionTimer:    time.NewTimer(time.Duration(config.TableActionTimeout) * time.Second),
+		tableTimer:     time.NewTimer(time.Duration(config.TableDeleteTimeout) * time.Minute),
 		lobby:          lobby,
 		log:            slog.With("component", "table"),
 		db:             store,
@@ -90,7 +104,6 @@ func (t *Table) cleanUp() {
 	close(t.registerChan)
 	close(t.unregisterChan)
 	close(t.inbound)
-	close(t.outbound)
 }
 
 func (t *Table) run(ctx context.Context) {
@@ -156,12 +169,10 @@ func (t *Table) removeInactivePlayers() {
 func (t *Table) handleCommand(msg inboundMessage) {
 	switch msg.data.Type {
 	case protocol.MsgStartGame:
-		// TODO: add a check to make sure that the game hasn't already been started. You can spam this button to constantly reset the timer
 		t.log.Info("Starting game")
 		err := t.game.StartGame()
 		if err != nil {
 			t.log.Warn("Attempted to start the game after it has already been started")
-			t.tableTimer.Reset(TABLE_TIMEOUT)
 			return
 		}
 		t.betTimer.Reset(ACTION_TIMEOUT)
@@ -311,7 +322,7 @@ func (t *Table) StoreGameData(results map[uuid.UUID]store.RoundResult) {
 			continue
 		}
 		githubId := client.username
-		err := t.db.RecordResult(context.TODO(), githubId, result)
+		err := t.db.RecordResult(context.Background(), githubId, result)
 		if err != nil {
 			slog.Error("Unable to record results to db", "username", githubId, "result", result)
 		}

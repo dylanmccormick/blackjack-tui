@@ -6,6 +6,11 @@ import (
 	"github.com/google/uuid"
 )
 
+var GC = GameConfig{
+	DeckCount:   6,
+	CutLocation: 150,
+}
+
 func TestDeckHasCorrectCardCount(t *testing.T) {
 	deck := CreateDeck(1, 0)
 	if len(deck.Cards) != 52 {
@@ -151,7 +156,7 @@ func TestHandValue(t *testing.T) {
 
 func TestAddPlayer(t *testing.T) {
 	var err error
-	game := NewGame()
+	game := NewGame(GC)
 
 	p1 := &Player{}
 	p2 := &Player{}
@@ -191,7 +196,7 @@ func TestPlaceBet(t *testing.T) {
 		t.Fatalf("Unable to create UUID err:%#v", err)
 	}
 
-	game := NewGame()
+	game := NewGame(GC)
 	p1 := &Player{ID: u1, Wallet: 10}
 	p2 := &Player{ID: u2, Wallet: 1}
 	game.AddPlayer(p1)
@@ -225,7 +230,7 @@ func TestNextPlayer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create UUID err:%#v", err)
 	}
-	game := NewGame()
+	game := NewGame(GC)
 	p1 := &Player{ID: u1, Wallet: 10, State: BETS_MADE}
 	p2 := &Player{ID: u2, Wallet: 100, State: BETS_MADE}
 	p3 := &Player{ID: u3, Wallet: 100, State: BETS_MADE}
@@ -256,7 +261,7 @@ func TestGameFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create UUID err:%#v", err)
 	}
-	game := NewGame()
+	game := NewGame(GC)
 	p1 := &Player{ID: u1, Wallet: 10, State: BETTING}
 	err = game.AddPlayer(p1)
 	genericErrHelper(t, err)
@@ -299,7 +304,7 @@ func TestGameFlowErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to create UUID err:%#v", err)
 	}
-	game := NewGame()
+	game := NewGame(GC)
 	p1 := &Player{ID: u1, Wallet: 10, State: BETTING}
 	err = game.AddPlayer(p1)
 	genericErrHelper(t, err)
@@ -330,7 +335,7 @@ func TestCalculatePayout(t *testing.T) {
 		{&Hand{Cards: []Card{{suit, 10}, {suit, 5}, {suit, 5}, {suit, ACE}}}, &Hand{Cards: []Card{{suit, 10}, {suit, ACE}}}, 0},
 		{&Hand{Cards: []Card{{suit, 10}, {suit, 10}}}, &Hand{Cards: []Card{{suit, 10}, {suit, 10}}}, 10},
 	}
-	g := NewGame()
+	g := NewGame(GC)
 	u1, err := uuid.NewUUID()
 	if err != nil {
 		t.Fatalf("Unable to create UUID err:%#v", err)
@@ -350,7 +355,7 @@ func TestCalculatePayout(t *testing.T) {
 
 func TestHitUntilBust(t *testing.T) {
 	suit := suit("spade")
-	g := NewGame()
+	g := NewGame(GC)
 	g.Deck.Cards = append(
 		[]Card{
 			{suit, 10}, // player cards
@@ -388,7 +393,7 @@ func TestHitUntilBust(t *testing.T) {
 
 func TestHitUntilStay(t *testing.T) {
 	suit := suit("spade")
-	g := NewGame()
+	g := NewGame(GC)
 	g.Deck.Cards = append(
 		[]Card{
 			{suit, 2}, // player cards
@@ -444,7 +449,7 @@ func TestHitUntilStay(t *testing.T) {
 func TestDealerLogicHitSoft17(t *testing.T) {
 	StandOnSoft17 = false
 	suit := suit("spade")
-	g := NewGame()
+	g := NewGame(GC)
 	g.Deck.Cards = append(
 		[]Card{
 			{suit, 10}, // player cards
@@ -482,7 +487,7 @@ func TestDealerLogicHitSoft17(t *testing.T) {
 func TestDealerLogicStandSoft17(t *testing.T) {
 	StandOnSoft17 = true
 	suit := suit("spade")
-	g := NewGame()
+	g := NewGame(GC)
 	g.Deck.Cards = append(
 		[]Card{
 			{suit, 10}, // player cards
