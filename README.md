@@ -80,10 +80,31 @@ Thanks for checking out my project! If you have any suggestions or tips for me f
 
 ## What I learned in this project
 
-- Sqlite with go
-- Websockets
-- Channels and concurrent go patterns
-- Context
+**Go Concurrency Patterns:**
+
+- Actor model with channels for safe concurrent state management
+- Goroutine lifecycle management and graceful shutdown
+- Context propagation for cancellation and timeouts
+
+**Backend Systems:**
+
+- WebSocket protocol and real-time bidirectional communication
+- GitHub OAuth Device Flow for CLI-friendly authentication
+- SQLite with Go using sqlc for type-safe queries
+- Session management and authentication middleware
+
+**Production Deployment:**
+
+- Docker multi-stage builds for minimal images
+- Traefik reverse proxy configuration
+- Structured logging for production debugging
+- Health check endpoints and graceful shutdown
+
+**TUI Development:**
+
+- Bubble Tea (Elm architecture) for terminal applications
+- Managing async updates in terminal UIs
+- Command-based navigation patterns
 
 ## Why Go?
 
