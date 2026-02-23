@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -46,7 +46,6 @@ func NewTable(height, width int) *TuiTable {
 	}
 }
 
-
 func (t *TuiTable) Init() tea.Cmd {
 	return nil
 }
@@ -69,7 +68,7 @@ func (t *TuiTable) GameMessageToState(msg *protocol.GameDTO) {
 		player.Wallet = receivedPlayer.Wallet
 		player.Name = receivedPlayer.Name
 		player.Current = receivedPlayer.CurrentPlayer
-		log.Printf("Adding player %s to board", player.Name)
+		slog.Info("Adding player to board", "player", player.Name)
 		t.Players[i] = player
 	}
 	dealer := t.Players[0]

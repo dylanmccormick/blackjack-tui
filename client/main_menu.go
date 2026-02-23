@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -58,7 +58,7 @@ func (mm *MainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			log.Printf("Got keypress enter: chainging to page %#v ", mm.menuItems[mm.currMenuIndex])
+			slog.Debug("Got keypress enter: changing page", "target", mm.menuItems[mm.currMenuIndex])
 			var newPage mPage
 			switch mm.menuItems[mm.currMenuIndex] {
 			case "Servers":
@@ -70,7 +70,7 @@ func (mm *MainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "Stats":
 				newPage = statsMenu
 			}
-			log.Printf("New page: %#v", newPage)
+			slog.Debug("New page:",  "page", newPage)
 			cmds = append(cmds, ChangeMenuPageCmd(newPage))
 		case tea.KeyRunes:
 			switch string(msg.Runes) {

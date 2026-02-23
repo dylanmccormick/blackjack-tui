@@ -35,7 +35,6 @@ func (f *Footer) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		f.Height = 3
 		f.Width = msg.Width / 2
-		log.Printf("Terminal: %dx%d, My layout uses: %dx%d\n", msg.Width, msg.Height, f.Width, f.Height)
 	}
 	return f, nil
 }

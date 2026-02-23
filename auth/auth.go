@@ -78,7 +78,7 @@ func (sm *SessionManager) sendDeviceRequest(session *Session) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error sending request: %s\n", err)
+		slog.Error("Error sending request", "error", err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -86,13 +86,13 @@ func (sm *SessionManager) sendDeviceRequest(session *Session) error {
 	// 5. Read and handle the response as needed (similar to the GET example).
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body: %s\n", err)
+		slog.Error("Error reading response body", "error", err)
 		return err
 	}
 	var returnData GHDeviceResponse
 	err = json.Unmarshal(body, &returnData)
 	if err != nil {
-		fmt.Printf("Error reading response, err:%#v\n", err)
+		slog.Error("Error reading response", "error", err)
 	}
 
 	slog.Info("URL", "uri", returnData.VerificationUri)

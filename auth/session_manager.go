@@ -43,7 +43,7 @@ type SessionCmd struct {
 func (sm *SessionManager) cleanup() {
 	for _, session := range sm.sessions {
 		if int(time.Since(session.lastRequest).Seconds()) > 900 {
-			slog.Info("Removing session", "session_id", session.SessionId)
+			sm.log.Info("Removing session", "session_id", session.SessionId)
 			delete(sm.sessions, session.SessionId)
 		}
 	}
@@ -90,7 +90,7 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error sending request: %s\n", err)
+		sm.log.Error("Error sending request", "error", err)
 		return false, err
 	}
 	defer resp.Body.Close()
@@ -98,11 +98,11 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 	// 5. Read and handle the response as needed (similar to the GET example).
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body: %s\n", err)
+		sm.log.Error("Error reading response body", "error", err)
 		return false, err
 	}
 
-	slog.Info("Poll git body", "body", string(body), "resp", resp, "status_code", resp.StatusCode, "status", resp.Status)
+	sm.log.Info("Poll git body", "body", string(body), "resp", resp, "status_code", resp.StatusCode, "status", resp.Status)
 
 	var returnData struct {
 		AccessToken string `json:"access_token"`
@@ -112,10 +112,10 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 	}
 	err = json.Unmarshal(body, &returnData)
 	if err != nil {
-		fmt.Printf("Error reading response, err:%#v\n", err)
+		sm.log.Error("Error reading response", "error", err)
 	}
 
-	slog.Info("Response", "response", returnData)
+	sm.log.Info("Response", "response", returnData)
 
 	if returnData.Error == "" {
 		auth = true
@@ -135,7 +135,7 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 func (sm *SessionManager) CheckStarredStatus(context context.Context, s *Session) (bool, error) {
 	client := &http.Client{Timeout: 20 * time.Second}
 
-	slog.Info("Bearer token", "token", s.githubToken)
+	sm.log.Info("Bearer token", "token", s.githubToken)
 
 	url := "https://api.github.com/user/starred/dylanmccormick/blackjack-tui"
 	req, err := http.NewRequest("GET", url, nil)
@@ -145,17 +145,17 @@ func (sm *SessionManager) CheckStarredStatus(context context.Context, s *Session
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	resp, err := client.Do(req)
 	if err != nil {
-		slog.Error("Error sending request: %s\n", "error", err)
+		sm.log.Error("Error sending request: %s\n", "error", err)
 		return false, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		slog.Error("Error reading response body: %s\n", "error", err)
+		sm.log.Error("Error reading response body: %s\n", "error", err)
 		return false, err
 	}
-	slog.Info("Response", "body", string(body))
+	sm.log.Info("Response", "body", string(body))
 
 	if resp.StatusCode == 204 {
 		return true, nil
@@ -166,7 +166,7 @@ func (sm *SessionManager) CheckStarredStatus(context context.Context, s *Session
 func (sm *SessionManager) UpdateUsername(ctx context.Context, s *Session) error {
 	client := &http.Client{Timeout: 20 * time.Second}
 
-	slog.Info("Bearer token", "token", s.githubToken)
+	sm.log.Info("Bearer token", "token", s.githubToken)
 
 	url := "https://api.github.com/user"
 	req, err := http.NewRequest("GET", url, nil)
@@ -177,14 +177,14 @@ func (sm *SessionManager) UpdateUsername(ctx context.Context, s *Session) error 
 
 	resp, err := client.Do(req)
 	if err != nil {
-		slog.Error("Error sending request: %s\n", "error", err)
+		sm.log.Error("Error sending request", "error", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		slog.Error("Error reading response body: %s\n", "error", err)
+		sm.log.Error("Error reading response body", "error", err)
 		return err
 	}
 
@@ -193,7 +193,7 @@ func (sm *SessionManager) UpdateUsername(ctx context.Context, s *Session) error 
 	}
 	err = json.Unmarshal(body, &returnData)
 	if err != nil {
-		fmt.Printf("Error reading response, err:%#v\n", err)
+		sm.log.Error("Error reading response", "error", err)
 	}
 	if resp.StatusCode == 200 {
 		sm.Commands <- &SessionCmd{
@@ -203,8 +203,8 @@ func (sm *SessionManager) UpdateUsername(ctx context.Context, s *Session) error 
 		}
 	}
 	if resp.StatusCode != 200 {
-		slog.Warn("Error getting username from github")
-		slog.Info("Response", "status", resp.StatusCode, "response body", resp.Body, "responseStatus", resp.Status)
+		sm.log.Warn("Error getting username from github")
+		sm.log.Info("Response", "status", resp.StatusCode, "response body", resp.Body, "responseStatus", resp.Status)
 	}
 
 	return nil
@@ -217,7 +217,7 @@ func (sm *SessionManager) PollSession(ctx context.Context, s *Session) {
 	for range ticker.C {
 		// poll github
 		authenticated, err := sm.pollGit(s)
-		fmt.Printf("GOT %v from pollGit", authenticated)
+		sm.log.Debug("response from pollGit", "response", authenticated)
 		if err != nil {
 			// do some garbage
 			sm.log.Error("Github error", "error", err)
@@ -241,7 +241,7 @@ func (sm *SessionManager) updateSession(c *SessionCmd) {
 	if !ok {
 		return
 	}
-	slog.Info("Updating session before", "session", fmt.Sprint(s.String()))
+	sm.log.Info("Updating session before", "session", fmt.Sprint(s.String()))
 	if c.Authenticated != false {
 		s.Authenticated = c.Authenticated
 	}
@@ -251,11 +251,11 @@ func (sm *SessionManager) updateSession(c *SessionCmd) {
 	if c.GHUserId != "" {
 		s.GithubUserId = c.GHUserId
 	}
-	slog.Info("Updating session after", "session", s.String())
+	sm.log.Info("Updating session after", "session", s.String())
 }
 
 func (sm *SessionManager) addSession(s *Session) {
-	slog.Info("Adding session to session manager", "sessionID", s.SessionId)
+	sm.log.Info("Adding session to session manager", "sessionID", s.SessionId)
 	sm.sessions[s.SessionId] = s
 }
 

@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,7 +25,7 @@ func NewTableMenu(height, width int) *TableMenuModel {
 	ti.Placeholder = "my_cool_table"
 	ti.Width = 40
 	return &TableMenuModel{
-		textInput:  ti,
+		textInput: ti,
 		Commands: map[string]string{
 			"j":     "down",
 			"k":     "up",
@@ -88,7 +89,7 @@ func (tm *TableMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					tableName = tm.availableTables[tm.currTableIndex].Id
 					cmd = SendData(protocol.PackageClientMessage(protocol.MsgJoinTable, tableName))
 					cmds = append(cmds, cmd)
-					log.Printf("Attempting to join table: %s", tableName)
+					slog.Info("Attempting to join table", "tableName", tableName)
 					cmd = ChangeRootPage(gamePage)
 					cmds = append(cmds, cmd)
 				}

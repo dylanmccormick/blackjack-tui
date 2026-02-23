@@ -18,7 +18,7 @@ func ReceiveMessage(sub <-chan *protocol.TransportMessage) tea.Cmd {
 			body := &protocol.GameDTO{}
 			err := json.Unmarshal(msg.Data, body)
 			if err != nil {
-				log.Printf("ERROR: %v", err)
+				slog.Error("error unmarshalling body", "error", err)
 			}
 			return body
 		case protocol.MsgTableList:

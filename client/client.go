@@ -215,20 +215,20 @@ func RunTui(mock bool) {
 	var rm *RootModel
 	f, err := tea.LogToFile("debug.log", "debug")
 	if err != nil {
-		fmt.Println("fatal:", err)
+		slog.Error("fatal error", "error", err)
 		os.Exit(1)
 	}
 	defer f.Close()
 	if mock {
-		log.Println("running in mock mode")
+		slog.Debug("running in mock mode")
 		rm = NewRootModel(NewMockTransporter())
 	} else {
-		log.Println("running in LIVE mode")
+		slog.Debug("running in LIVE mode")
 		rm = NewRootModel(NewWsBackendClient())
 	}
 	p := tea.NewProgram(rm)
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there has been an error: %v", err)
+		slog.Error("Error running BubbleTea application", "error", err)
 		os.Exit(1)
 	}
 }

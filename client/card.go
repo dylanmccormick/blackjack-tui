@@ -2,6 +2,7 @@ package client
 
 import (
 	"log"
+	"log/slog"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -26,7 +27,6 @@ const (
 	cardBL  = "╰"
 	cardBR  = "╯"
 
-
 	Width  = 6
 	Height = 5
 )
@@ -39,7 +39,7 @@ func NewCard(value, suit int) *Card {
 }
 
 func CardToCard(pc protocol.CardDTO) *Card {
-	log.Printf("translating card %#v", pc)
+	slog.Debug("translating card", "card", pc)
 	card := &Card{}
 	if strings.ToLower(pc.Suit) == "spade" {
 		card.Suit = 0
@@ -72,7 +72,8 @@ func (c *Card) ViewPartial() string {
 	color := lipgloss.Color("#FFFFFF")
 	style := lipgloss.NewStyle().Foreground(color)
 	padding := strings.Repeat(cardHor, 2)
-	var view strings.Builder; view.WriteString(style.Render(cardTL) + c.String() + "\n")
+	var view strings.Builder
+	view.WriteString(style.Render(cardTL) + c.String() + "\n")
 	for i := 1; i < Height-1; i++ {
 		view.WriteString(style.Render(cardVer+strings.Repeat(" ", 2)) + "\n")
 	}
@@ -84,7 +85,8 @@ func (c *Card) View() string {
 	color := lipgloss.Color("#FFFFFF")
 	style := lipgloss.NewStyle().Foreground(color)
 	padding := strings.Repeat(cardHor, Width-2-lipgloss.Width(c.String()))
-	var view strings.Builder; view.WriteString(style.Render(cardTL) + c.String() + style.Render(padding+cardTR) + "\n")
+	var view strings.Builder
+	view.WriteString(style.Render(cardTL) + c.String() + style.Render(padding+cardTR) + "\n")
 	for i := 1; i < Height-1; i++ {
 		view.WriteString(style.Render(cardVer+strings.Repeat(" ", Width-2)+cardVer) + "\n")
 	}
@@ -96,7 +98,8 @@ func hiddenCardView() string {
 	color := lipgloss.Color("#FFFFFF")
 	style := lipgloss.NewStyle().Foreground(color)
 	padding := strings.Repeat(cardHor, Width-2)
-	var view strings.Builder; view.WriteString(style.Render("╭") + style.Render(padding+"╮") + "\n")
+	var view strings.Builder
+	view.WriteString(style.Render("╭") + style.Render(padding+"╮") + "\n")
 	for i := 1; i < Height-1; i++ {
 		view.WriteString(style.Render(cardVer+strings.Repeat(" ", Width-2)+cardVer) + "\n")
 	}

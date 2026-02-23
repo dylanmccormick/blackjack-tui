@@ -2,7 +2,7 @@ package client
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -91,7 +91,7 @@ func (sm *ServerMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					server = sm.savedServers[sm.currServerIndex]
 					// TODO: join a saved server
 					cmds = append(cmds, RequestLogin(server))
-					log.Printf("Attempting to join server: %s", server)
+					slog.Info("Attempting to join server", "server", server)
 				}
 			}
 			// This will be to join a server

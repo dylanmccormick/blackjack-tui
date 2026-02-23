@@ -1,7 +1,7 @@
 package client
 
 import (
-	"log"
+	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -91,7 +91,7 @@ func (mm *MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	case ChangeMenuPage:
-		log.Printf("Changing menu page: %#v", msg.page)
+		slog.Debug("changing menu page", "page", msg.page)
 		mm.page = msg.page
 	case tea.WindowSizeMsg:
 		mm.Height = (msg.Height * 2 / 3)
