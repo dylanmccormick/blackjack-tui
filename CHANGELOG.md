@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1] - 2026-02-24
+
+Added
+- METRICS.md as a workspace for adding new metrics
+- Fixed bug with table delete timer
+- Added /metrics endpoint for prometheus metrics
+
 ## [0.2.0] - 2026-02-23
 
 Added
