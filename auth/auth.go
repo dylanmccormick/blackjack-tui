@@ -1,10 +1,8 @@
 package auth
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -63,42 +61,13 @@ func HandleAuthCheck(sm *SessionManager, id string, w http.ResponseWriter, r *ht
 }
 
 func (sm *SessionManager) sendDeviceRequest(session *Session) error {
-	client := &http.Client{Timeout: 20 * time.Second}
-
-	data := map[string]string{"client_id": sm.gitClientId}
-	jsonData, err := json.Marshal(data)
+	resp, err := sm.ghClient.RequestDeviceCode(context.Background())
 	if err != nil {
 		return err
 	}
 
-	url := "https://github.com/login/device/code"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		slog.Error("Error sending request", "error", err)
-		return err
-	}
-	defer resp.Body.Close()
-
-	// 5. Read and handle the response as needed (similar to the GET example).
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		slog.Error("Error reading response body", "error", err)
-		return err
-	}
-	var returnData GHDeviceResponse
-	err = json.Unmarshal(body, &returnData)
-	if err != nil {
-		slog.Error("Error reading response", "error", err)
-	}
-
-	slog.Info("URL", "uri", returnData.VerificationUri)
-
-	session.userCode = returnData.UserCode
-	session.deviceCode = returnData.DeviceCode
+	session.userCode = resp.UserCode
+	session.deviceCode = resp.DeviceCode
 	session.createdAt = time.Now()
 	return nil
 }

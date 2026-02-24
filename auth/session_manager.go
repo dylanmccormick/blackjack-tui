@@ -1,29 +1,25 @@
 package auth
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"time"
 )
 
 type SessionManager struct {
-	sessions    map[string]*Session
-	log         *slog.Logger
-	Commands    chan *SessionCmd
-	gitClientId string
+	sessions map[string]*Session
+	log      *slog.Logger
+	Commands chan *SessionCmd
+	ghClient *GithubClient
 }
 
 func NewSessionManager(gitClientID string) *SessionManager {
 	return &SessionManager{
-		sessions:    make(map[string]*Session),
-		log:         slog.With("component", "sessionManager"),
-		Commands:    make(chan *SessionCmd, 10),
-		gitClientId: gitClientID,
+		sessions: make(map[string]*Session),
+		log:      slog.With("component", "sessionManager"),
+		Commands: make(chan *SessionCmd, 10),
+		ghClient: NewGithubClient(gitClientID),
 	}
 }
 
@@ -71,137 +67,52 @@ func (sm *SessionManager) getSession(resp chan<- *Session, id string) {
 	resp <- s
 }
 
-func (sm *SessionManager) pollGit(s *Session) (bool, error) {
-	auth := false
-	client := &http.Client{Timeout: 20 * time.Second}
-
-	grantType := fmt.Sprintf("urn:ietf:params:oauth:grant-type:%s", "device_code")
-
-	data := map[string]string{"client_id": sm.gitClientId, "device_code": s.deviceCode, "grant_type": grantType}
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return false, err
-	}
-
-	url := "https://github.com/login/oauth/access_token"
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		sm.log.Error("Error sending request", "error", err)
-		return false, err
-	}
-	defer resp.Body.Close()
-
-	// 5. Read and handle the response as needed (similar to the GET example).
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		sm.log.Error("Error reading response body", "error", err)
-		return false, err
-	}
-
-	var returnData struct {
-		AccessToken string `json:"access_token"`
-		TokenType   string `json:"token_type"`
-		Scope       string `json:"scope"`
-		Error       string `json:"error"`
-	}
-	err = json.Unmarshal(body, &returnData)
-	if err != nil {
-		sm.log.Error("Error reading response", "error", err)
-	}
-
-	sm.log.Info("Response", "response", returnData)
-
-	if returnData.Error == "" {
-		auth = true
-		sm.Commands <- &SessionCmd{
-			Action:    "updateSession",
-			SessionId: s.SessionId,
-
-			Authenticated: true,
-			GHToken:       returnData.AccessToken,
-		}
-	}
-
-	return auth, nil
+type GHPollData struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	Scope       string `json:"scope"`
+	Error       string `json:"error"`
 }
 
-func (sm *SessionManager) CheckStarredStatus(context context.Context, s *Session) (bool, error) {
-	client := &http.Client{Timeout: 20 * time.Second}
-
-	sm.log.Info("Bearer token", "token", s.githubToken)
-
-	url := "https://api.github.com/user/starred/dylanmccormick/blackjack-tui"
-	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Set("Content-Type", "application/vnd.github+json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.githubToken)
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	resp, err := client.Do(req)
+func (sm *SessionManager) pollGit(s *Session) (bool, error) {
+	resp, err := sm.ghClient.PollAccessToken(context.Background(), s.deviceCode)
 	if err != nil {
-		sm.log.Error("Error sending request: %s\n", "error", err)
 		return false, err
 	}
-	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	sm.Commands <- &SessionCmd{
+		Action:    "updateSession",
+		SessionId: s.SessionId,
+
+		Authenticated: true,
+		GHToken:       resp,
+	}
+
+	return true, nil
+}
+
+func (sm *SessionManager) CheckStarredStatus(ctx context.Context, s *Session) (bool, error) {
+	starred, err := sm.ghClient.CheckStarred(ctx, s.githubToken, "dylanmccormick/blackjack-tui")
 	if err != nil {
-		sm.log.Error("Error reading response body: %s\n", "error", err)
+		sm.log.Error("Error checking starred status", "error", err)
 		return false, err
 	}
-	sm.log.Info("Response", "body", string(body))
-
-	if resp.StatusCode == 204 {
-		return true, nil
-	}
-	return false, nil
+	return starred, nil
 }
 
 func (sm *SessionManager) UpdateUsername(ctx context.Context, s *Session) error {
-	client := &http.Client{Timeout: 20 * time.Second}
-
-	sm.log.Info("Bearer token", "token", s.githubToken)
-
-	url := "https://api.github.com/user"
-	req, err := http.NewRequest("GET", url, nil)
-	req.Header.Set("Content-Type", "application/vnd.github+json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.githubToken)
-	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-
-	resp, err := client.Do(req)
+	username, err := sm.ghClient.GetUsername(ctx, s.githubToken)
 	if err != nil {
-		sm.log.Error("Error sending request", "error", err)
 		return err
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		sm.log.Error("Error reading response body", "error", err)
-		return err
-	}
-
-	var returnData struct {
-		UserName string `json:"login"`
-	}
-	err = json.Unmarshal(body, &returnData)
-	if err != nil {
-		sm.log.Error("Error reading response", "error", err)
-	}
-	if resp.StatusCode == 200 {
-		sm.Commands <- &SessionCmd{
-			Action:    "updateSession",
-			GHUserId:  returnData.UserName,
-			SessionId: s.SessionId,
-		}
-	}
-	if resp.StatusCode != 200 {
+	if username == "" {
 		sm.log.Warn("Error getting username from github")
-		sm.log.Info("Response", "status", resp.StatusCode, "response body", resp.Body, "responseStatus", resp.Status)
+		return nil
+	}
+	sm.Commands <- &SessionCmd{
+		Action:    "updateSession",
+		GHUserId:  username,
+		SessionId: s.SessionId,
 	}
 
 	return nil
