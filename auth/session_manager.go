@@ -102,8 +102,6 @@ func (sm *SessionManager) pollGit(s *Session) (bool, error) {
 		return false, err
 	}
 
-	sm.log.Info("Poll git body", "body", string(body), "resp", resp, "status_code", resp.StatusCode, "status", resp.Status)
-
 	var returnData struct {
 		AccessToken string `json:"access_token"`
 		TokenType   string `json:"token_type"`
