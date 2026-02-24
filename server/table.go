@@ -41,11 +41,13 @@ type Table struct {
 	tableTimer    *time.Timer
 	cleanupTicker *time.Ticker
 
-	log *slog.Logger
-	db  *store.Store
+	log     *slog.Logger
+	db      *store.Store
+	Config  Config
+	Metrics *Metrics
 }
 
-func newTable(ctx context.Context, name string, lobby *Lobby, store *store.Store) *Table {
+func newTable(ctx context.Context, name string, lobby *Lobby, store *store.Store, metrics *Metrics) *Table {
 	cfg := ctx.Value("config")
 	config, ok := cfg.(Config)
 	if !ok {
@@ -76,13 +78,16 @@ func newTable(ctx context.Context, name string, lobby *Lobby, store *store.Store
 		lobby:          lobby,
 		log:            slog.With("component", "table"),
 		db:             store,
-		cleanupTicker:  time.NewTicker(REFRESH_TICK_RATE),
+		cleanupTicker:  time.NewTicker(REFRESH_TICK_RATE * time.Second),
 		maxPlayers:     5,
+		Metrics:        metrics,
+		Config:         config,
 	}
 	t.log = t.log.With("table_id", t.id)
 	t.betTimer.Stop()
 	t.actionTimer.Stop()
 	t.tableTimer.Stop()
+	t.log.Info("created new table", "table", t, "actionTimer", config.TableActionTimeout, "betTimer", config.BetTimeout, "tableTimer", config.TableDeleteTimeout)
 	return t
 }
 
@@ -125,6 +130,8 @@ func (t *Table) run(ctx context.Context) {
 			t.log.Info("BET TIMER EXPIRED")
 			err := t.game.StartRound()
 			if err != nil {
+				t.log.Info("No active players found in game. Starting delete timer", "error", err)
+				t.tableTimer.Reset(time.Duration(t.Config.TableDeleteTimeout) * time.Minute)
 			}
 			t.autoProgress()
 		case <-t.actionTimer.C:
@@ -134,7 +141,7 @@ func (t *Table) run(ctx context.Context) {
 				continue
 			}
 			t.game.Stay(t.game.CurrentPlayer())
-			t.actionTimer.Reset(ACTION_TIMEOUT)
+			t.actionTimer.Reset(time.Duration(t.Config.TableActionTimeout) * time.Second)
 			if t.game.State == game.DEALER_TURN {
 				t.autoProgress()
 			}
@@ -161,6 +168,7 @@ func (t *Table) removeInactivePlayers() {
 			continue
 		}
 		if player.ShouldRemove() {
+			t.log.Info("Removing player", "player_id", player.ID)
 			t.game.RemovePlayer(player.ID)
 		}
 	}
@@ -175,7 +183,7 @@ func (t *Table) handleCommand(msg inboundMessage) {
 			t.log.Warn("Attempted to start the game after it has already been started")
 			return
 		}
-		t.betTimer.Reset(ACTION_TIMEOUT)
+		t.betTimer.Reset(time.Duration(t.Config.BetTimeout) * time.Second)
 	case protocol.MsgGetState:
 		t.log.Debug("Client requested game state")
 		t.broadcastGameState()
@@ -207,7 +215,7 @@ func (t *Table) handleCommand(msg inboundMessage) {
 				msg.client.send <- popup
 			}
 		}
-		t.actionTimer.Reset(ACTION_TIMEOUT)
+		t.actionTimer.Reset(time.Duration(t.Config.TableActionTimeout) * time.Second)
 	case protocol.MsgStand:
 		err := t.game.Stay(t.game.GetPlayer(msg.client.id))
 		if err != nil {
@@ -216,7 +224,7 @@ func (t *Table) handleCommand(msg inboundMessage) {
 				msg.client.send <- popup
 			}
 		}
-		t.actionTimer.Reset(ACTION_TIMEOUT)
+		t.actionTimer.Reset(time.Duration(t.Config.TableActionTimeout) * time.Second)
 		t.log.Debug("Standing", "client", msg.client.id)
 	case protocol.MsgLeaveTable:
 		// intentionally left table
@@ -287,7 +295,7 @@ OuterLoop:
 		case game.DEALING:
 			t.log.Debug("dealing cards")
 			t.game.DealCards()
-			t.actionTimer.Reset(ACTION_TIMEOUT)
+			t.actionTimer.Reset(time.Duration(t.Config.TableActionTimeout) * time.Second)
 		case game.DEALER_TURN:
 			t.log.Debug("PLAYING DEALER")
 			t.game.PlayDealer()
@@ -298,7 +306,7 @@ OuterLoop:
 				slog.Error("Error in autoprogress. Unable to resolve bets", "error", err)
 			}
 			t.StoreGameData(pmap)
-			t.betTimer.Reset(ACTION_TIMEOUT)
+			t.betTimer.Reset(time.Duration(t.Config.BetTimeout) * time.Second)
 		default:
 			t.promptCurrentPlayerTurn()
 			t.broadcastGameState()
@@ -385,5 +393,6 @@ func (t *Table) UnregisterClient(client *Client) {
 		delete(t.idToClient, client.id)
 		delete(t.clients, client)
 		close(client.send)
+		t.Metrics.ConnectedClients.Dec()
 	}
 }

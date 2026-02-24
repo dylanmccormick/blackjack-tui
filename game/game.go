@@ -133,7 +133,6 @@ func (g *Game) StartRound() error {
 		}
 	}
 	if len(g.ActivePlayers()) == 0 {
-		slog.Info("Starting table delete timer")
 		g.State = WAIT_FOR_START
 		return fmt.Errorf("no active players in game")
 	}

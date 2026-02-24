@@ -2,12 +2,12 @@
 
 # Server Config
 server:
-  sqlite_db_path: "./sql/schema"
+  sqlite_schema_path: "./sql/schema"
   port: 42069
   git_client_id: ${GIT_CLIENT_ID}
   sqlite_db_name: ${SQLITE_DB}
 
-log_level: INFO
+log_level: DEBUG
 
 table_action_timeout_seconds: 30
 table_auto_delete_timeout_minutes: 5

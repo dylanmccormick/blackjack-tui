@@ -12,8 +12,8 @@ import (
 
 func TestCreateTable(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store)
-	table := newTable(context.TODO(), "test_table", lobby, store)
+	lobby := newLobby(store, CreateMetrics())
+	table := newTable(context.TODO(), "test_table", lobby, store, CreateMetrics())
 
 	if len(table.clients) != 0 {
 		t.Fatalf("No clients map created")
@@ -22,8 +22,8 @@ func TestCreateTable(t *testing.T) {
 
 func TestTableClientInteractions(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store)
-	table := newTable(context.TODO(), "test_table", lobby, store)
+	lobby := newLobby(store, CreateMetrics())
+	table := newTable(context.TODO(), "test_table", lobby, store, CreateMetrics())
 
 	id, err := uuid.NewUUID()
 	if err != nil {
@@ -48,8 +48,8 @@ func TestTableClientInteractions(t *testing.T) {
 
 func TestAutoProgress(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store)
-	tab := newTable(context.TODO(), "test_table", lobby, store)
+	lobby := newLobby(store, CreateMetrics())
+	tab := newTable(context.TODO(), "test_table", lobby, store, CreateMetrics())
 	client := clientHelper(1)[0]
 	tab.RegisterClient(client)
 	p := tab.game.GetPlayer(client.id)

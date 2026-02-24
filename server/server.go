@@ -19,6 +19,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v3"
 )
 
@@ -35,13 +37,14 @@ type manager interface {
 }
 
 type Client struct {
-	conn     *websocket.Conn
-	mu       sync.Mutex
-	id       uuid.UUID
-	manager  manager
-	send     chan *protocol.TransportMessage
-	username string
-	log      *slog.Logger
+	conn        *websocket.Conn
+	mu          sync.Mutex
+	id          uuid.UUID
+	manager     manager
+	send        chan *protocol.TransportMessage
+	username    string
+	log         *slog.Logger
+	connectedAt time.Time
 }
 
 const (
@@ -58,10 +61,10 @@ var upgrader = websocket.Upgrader{
 
 type Config struct {
 	Server struct {
-		SqliteDBPath string `yaml:"sqlite_db_path"`
-		port         string `yaml:"port"`
-		GitClientID  string `yaml:"git_client_id"`
-		SqliteDBName string `yaml:"sqlite_db_name"`
+		SqliteSchemaPath string `yaml:"sqlite_schema_path"`
+		port             string `yaml:"port"`
+		GitClientID      string `yaml:"git_client_id"`
+		SqliteDBName     string `yaml:"sqlite_db_name"`
 	} `yaml:"server"`
 
 	TableActionTimeout int  `yaml:"table_action_timeout_seconds"`
@@ -81,6 +84,8 @@ type Server struct {
 	Store          *store.Store
 	Config         *Config
 	log            *slog.Logger
+	Metrics        *Metrics
+	Registry       *prometheus.Registry
 }
 
 func DefaultConfig() Config {
@@ -115,13 +120,15 @@ func LoadConfig() Config {
 
 func InitializeServer() *Server {
 	Config := LoadConfig()
-	Store, err := store.NewStore(os.Getenv("SQLITE_DB"), "./sql/schema")
+	Store, err := store.NewStore(Config.Server.SqliteDBName, Config.Server.SqliteSchemaPath)
 	if err != nil {
 		slog.Error("Unable to load or create datastore", "error", err)
 		os.Exit(1)
 	}
+	registry := prometheus.NewRegistry()
+	metrics := NewMetrics(registry)
 	SessionManager := auth.NewSessionManager(Config.Server.GitClientID)
-	Lobby := newLobby(Store)
+	Lobby := newLobby(Store, metrics)
 	var level slog.Level
 	err = level.UnmarshalText([]byte(Config.LogLevel))
 	if err != nil {
@@ -140,6 +147,8 @@ func InitializeServer() *Server {
 		Lobby:          Lobby,
 		Store:          Store,
 		log:            serverLog,
+		Metrics:        metrics,
+		Registry:       registry,
 	}
 }
 
@@ -168,6 +177,8 @@ func (s *Server) Run() {
 	http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		auth.WriteHttpResponse(w, http.StatusOK, `{"message": "healthy"}`)
 	})
+
+	http.Handle("/metrics", promhttp.HandlerFor(s.Registry, promhttp.HandlerOpts{Registry: s.Registry}))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		s.log.Info("Received connection")
@@ -233,13 +244,15 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	client := &Client{
-		conn:     conn,
-		send:     make(chan *protocol.TransportMessage, 10),
-		id:       generateId(),
-		manager:  s.Lobby,
-		log:      slog.With("component", "client"),
-		username: session.GithubUserId,
+		conn:        conn,
+		send:        make(chan *protocol.TransportMessage, 10),
+		id:          generateId(),
+		manager:     s.Lobby,
+		log:         slog.With("component", "client"),
+		username:    session.GithubUserId,
+		connectedAt: time.Now(),
 	}
+	s.Metrics.ConnectedClients.Inc()
 	client.manager.register(client)
 	ctx = context.WithValue(ctx, "ghUsername", client.username)
 

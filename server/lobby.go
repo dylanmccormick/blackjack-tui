@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"sync"
+	"time"
 
 	"github.com/dylanmccormick/blackjack-tui/protocol"
 	"github.com/dylanmccormick/blackjack-tui/store"
@@ -23,9 +24,10 @@ type Lobby struct {
 	tableWg        sync.WaitGroup
 	log            *slog.Logger
 	store          *store.Store
+	Metrics        *Metrics
 }
 
-func newLobby(store *store.Store) *Lobby {
+func newLobby(store *store.Store, metrics *Metrics) *Lobby {
 	return &Lobby{
 		clients:        make(map[*Client]bool),
 		registerChan:   make(chan *Client),
@@ -35,6 +37,7 @@ func newLobby(store *store.Store) *Lobby {
 		tables:         make(map[string]*Table),
 		log:            slog.With("component", "lobby"),
 		store:          store,
+		Metrics:        metrics,
 	}
 }
 
@@ -63,9 +66,15 @@ func (l *Lobby) shutdownTables() {
 }
 
 func (l *Lobby) UnregisterClient(client *Client) {
-	l.log.Info("Unregistering client", "client", client.id)
-	delete(l.clients, client)
-	close(client.send)
+	// Should be run at least once per client. Is ok if it is run more than once
+	l.log.Info("attempting to unregister client", "client", client.id)
+	if _, ok := l.clients[client]; ok {
+		delete(l.clients, client)
+		close(client.send)
+		l.Metrics.ConnectedClients.Dec()
+		clientDuration := time.Since(client.connectedAt)
+		l.Metrics.ConnectedDuration.Observe(float64(clientDuration))
+	}
 }
 
 func getValueFromRawValueMessage(raw json.RawMessage) (string, error) {
@@ -144,13 +153,14 @@ func (l *Lobby) createTable(ctx context.Context, name string) {
 		l.log.Warn("Table name already exists... not creating new table")
 		return
 	}
-	t := newTable(ctx, name, l, l.store)
+	t := newTable(ctx, name, l, l.store, l.Metrics)
 	tableCtx, tableCancel := context.WithCancel(ctx)
 	t.cancel = tableCancel
 	l.tables[name] = t
 	l.tableWg.Go(func() {
 		t.run(tableCtx)
 	})
+	l.Metrics.ActiveTables.Inc()
 	for client := range l.clients {
 		l.listTables(client)
 	}
@@ -161,6 +171,7 @@ func (l *Lobby) deleteTable(name string) {
 		t.cancel()
 		// this may have to do some cleanup. send everyone in the table back to the lobby
 		delete(l.tables, name)
+		l.Metrics.ActiveTables.Dec()
 		return
 	}
 	l.log.Warn("Table name doesn't exist. cannot delete anything")
