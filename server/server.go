@@ -1,13 +1,11 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,8 +28,6 @@ var (
 	newline = []byte{'\n'}
 	space   = []byte{' '}
 )
-
-type Middleware func(http.Handler) http.Handler
 
 type manager interface {
 	register(*Client)
@@ -215,95 +211,6 @@ func (s *Server) Run() {
 	s.log.Info("Shutdown Complete")
 }
 
-func (s *Server) authMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sessionId := r.URL.Query().Get("session")
-		session, err := s.SessionManager.GetSession(sessionId)
-		if err != nil {
-			s.log.Error("error with session", "error", err)
-			http.Error(w, "Authentication Required", http.StatusUnauthorized)
-			return
-		}
-		if !session.Authenticated {
-			http.Error(w, "Authentication Required", http.StatusUnauthorized)
-			return
-		}
-		ctx := context.WithValue(r.Context(), "session", session)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-func (s *Server) panicRecoveryMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				s.log.Error("PANIC recovered",
-					"error", err,
-					"path", r.URL.Path,
-					"method", r.Method,
-				)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		s.log.Info("[Request Start]", "method", r.Method, "path", r.URL.Path)
-		next.ServeHTTP(w, r)
-		duration := time.Since(start).Seconds()
-		s.log.Info("[Request End]", "method", r.Method, "path", r.URL.Path, "duration", duration)
-	})
-}
-
-type responseWriterWithStatus struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriterWithStatus) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	hijacker, ok := rw.ResponseWriter.(http.Hijacker)
-	if !ok {
-		return nil, nil, fmt.Errorf("responsewriter does not support hijacking")
-	}
-	return hijacker.Hijack()
-}
-
-func (rw *responseWriterWithStatus) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
-}
-
-func (s *Server) metricsMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		s.Metrics.HTTPRequestsInFlight.Inc()
-		defer s.Metrics.HTTPRequestsInFlight.Dec()
-
-		wrappedWriter := &responseWriterWithStatus{ResponseWriter: w, statusCode: 200}
-		next.ServeHTTP(wrappedWriter, r)
-
-		duration := time.Since(start).Seconds()
-		method := r.Method
-		path := r.URL.Path
-		status := fmt.Sprintf("%d", wrappedWriter.statusCode)
-		s.Metrics.HTTPRequestsDuration.WithLabelValues(method, path).Observe(duration)
-		s.Metrics.HTTPRequestsTotal.WithLabelValues(method, path, status).Inc()
-	})
-}
-
-func chainMiddleware(handler http.Handler, middlewares ...Middleware) http.Handler {
-	// Apply middleware in REVERSE order so they execute in the order listed
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		handler = middlewares[i](handler)
-	}
-	return handler
-}
-
 func generateId() uuid.UUID {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
@@ -320,7 +227,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, "sessionId", session.SessionId)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.log.Error("An error occurred upgrading the http connection", "error", err)
+		s.log.Error("An error occurred upgrading the http connection", "error", err, "request_id", ctx.Value("requestId"))
 		http.Error(w, "Error upgrading connection", http.StatusInternalServerError)
 		return
 	}
@@ -344,33 +251,33 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("error processing login", "error", err)
 	}
-	slog.Info("User got that money!", "income", income)
+	slog.Info("User got that money!", "income", income, "request_id", ctx.Value("requestId"), "sessionId", ctx.Value("sessionId"))
 
 	msg := fmt.Sprintf("Thank you for logging in for %d day(s) in a row! You have earned %d income", u.LoginStreak, income)
 
 	pack, err := protocol.PackageMessage(protocol.MessageToDTO(msg, protocol.InfoMsg))
 	if err != nil {
-		slog.Error("Unable to process message", "error", err)
+		slog.Error("Unable to process message", "error", err, ctx.Value("requestId"), "sessionId", ctx.Value("sessionId"))
 	}
 
 	client.send <- pack
 
 	isStarred, err := s.SessionManager.CheckStarredStatus(ctx, session)
 	if err != nil {
-		slog.Error("error processing repo stars", "error", err)
+		slog.Error("error processing repo stars", "error", err, ctx.Value("requestId"), "sessionId", ctx.Value("sessionId"))
 	}
 	if isStarred {
-		slog.Info("USER STARRED THE REPO!")
+		slog.Info("USER STARRED THE REPO!", ctx.Value("requestId"), "sessionId", ctx.Value("sessionId"))
 	}
 
 	newStar, err := s.Store.UpdateUserStarred(ctx, client.username)
 	if newStar {
-		slog.Info("Thank you for the star kind user", "user", client.username)
+		slog.Info("Thank you for the star kind user", "user", client.username, ctx.Value("requestId"), "sessionId", ctx.Value("sessionId"))
 		msg = fmt.Sprintf("Thank you for starring the repo! You have earned %d bonus", 5000)
 
 		pack, err = protocol.PackageMessage(protocol.MessageToDTO(msg, protocol.InfoMsg))
 		if err != nil {
-			slog.Error("Unable to process message", "error", err)
+			slog.Error("Unable to process message", "error", err, ctx.Value("requestId"), "sessionId", ctx.Value("sessionId"))
 		}
 
 		client.send <- pack
@@ -392,7 +299,7 @@ func (c *Client) readPump(ctx context.Context) {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				c.log.Error("error with websocket", "error", err, "sessionId", ctx.Value("sessionId"), "client", ctx.Value("ghUsername"))
+				c.log.Error("error with websocket", "error", err, "sessionId", ctx.Value("sessionId"), "client", ctx.Value("ghUsername"), "request_id", ctx.Value("requestId"))
 			}
 			break
 		}
@@ -428,11 +335,11 @@ func (c *Client) writePump(ctx context.Context) {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			c.log.Debug("Writing message", "message", message, "sessionId", ctx.Value("sessionId"), "clientId", ctx.Value("ghUsername"))
+			c.log.Debug("Writing message", "message", message, "sessionId", ctx.Value("sessionId"), "clientId", ctx.Value("ghUsername"), "request_id", ctx.Value("requestId"))
 			c.conn.WriteJSON(message)
 			for range len(c.send) {
 				msg := <-c.send
-				c.log.Debug("Writing message", "message", msg, "sessionId", ctx.Value("sessionId"), "clientId", ctx.Value("ghUsername"))
+				c.log.Debug("Writing message", "message", msg, "sessionId", ctx.Value("sessionId"), "clientId", ctx.Value("ghUsername"), "request_id", ctx.Value("requestId"))
 				c.conn.WriteJSON(msg)
 			}
 		case <-ticker.C:

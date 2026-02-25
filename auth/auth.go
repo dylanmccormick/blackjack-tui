@@ -43,25 +43,25 @@ func HandleAuthCheck(sm *SessionManager, id string, w http.ResponseWriter, r *ht
 	session, err := sm.GetSession(id)
 	if err != nil {
 		data := map[string]string{"message": "session not found"}
-		err = WriteHttpResponse(w, 404, data)
+		err = WriteHttpResponse(r.Context(), w, 404, data)
 		if err != nil {
-			slog.Error("Error in HandleAuthCheck", "error", err)
-			WriteHttpResponse(w, 500, map[string]string{"message": "InternalServerError"})
+			slog.Error("Error in HandleAuthCheck", "error", err, "request_id", r.Context().Value("requestId"))
+			WriteHttpResponse(r.Context(), w, 500, map[string]string{"message": "InternalServerError"})
 		}
 		return false
 	}
 
 	data := map[string]string{"authenticated": fmt.Sprintf("%v", session.Authenticated), "username": session.GithubUserId}
-	err = WriteHttpResponse(w, 200, data)
+	err = WriteHttpResponse(r.Context(), w, 200, data)
 	if err != nil {
-		slog.Error("Error in HandleAuthCheck", "error", err)
-		WriteHttpResponse(w, 500, map[string]string{"message": "InternalServerError"})
+		slog.Error("Error in HandleAuthCheck", "error", err, "request_id", r.Context().Value("requestId"))
+		WriteHttpResponse(r.Context(), w, 500, map[string]string{"message": "InternalServerError"})
 	}
 	return session.Authenticated
 }
 
-func (sm *SessionManager) sendDeviceRequest(session *Session) error {
-	resp, err := sm.ghClient.RequestDeviceCode(context.Background())
+func (sm *SessionManager) sendDeviceRequest(ctx context.Context, session *Session) error {
+	resp, err := sm.ghClient.RequestDeviceCode(ctx)
 	if err != nil {
 		return err
 	}

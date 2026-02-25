@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -23,7 +24,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, sm *SessionManager) *S
 		Authenticated: false,
 	}
 	// 2. send GH request
-	err = sm.sendDeviceRequest(&session)
+	err = sm.sendDeviceRequest(r.Context(), &session)
 	if err != nil {
 		slog.Error("error in handler", "error", err)
 		return nil
@@ -31,18 +32,18 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, sm *SessionManager) *S
 
 	data := map[string]string{"session_id": session.SessionId, "user_code": session.userCode}
 
-	err = WriteHttpResponse(w, 200, data)
+	err = WriteHttpResponse(r.Context(), w, 200, data)
 	if err != nil {
-		slog.Error("Error in loginHandler", "error", err)
-		WriteHttpResponse(w, 500, map[string]string{"message": "InternalServerError"})
+		slog.Error("Error in loginHandler", "error", err, "request_id", r.Context().Value("requestId"))
+		WriteHttpResponse(r.Context(), w, 500, map[string]string{"message": "InternalServerError"})
 	}
 	return &session
 }
 
-func WriteHttpResponse(w http.ResponseWriter, statusCode int, body any) error {
+func WriteHttpResponse(ctx context.Context, w http.ResponseWriter, statusCode int, body any) error {
 	response, err := json.Marshal(body)
 	if err != nil {
-		slog.Error("Error writing json", "error", err)
+		slog.Error("Error writing json", "error", err, "request_id", ctx.Value("requestId"))
 		return err
 	}
 
