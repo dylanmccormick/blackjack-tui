@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"time"
+
+	"github.com/dylanmccormick/blackjack-tui/internal/errors"
 )
 
 type SessionManager struct {
@@ -52,7 +54,7 @@ func (sm *SessionManager) GetSession(id string) (*Session, error) {
 	sm.Commands <- cmd
 	session := <-resp
 	if session == nil {
-		return nil, fmt.Errorf("Session %s not found", id)
+		return nil, &errors.NotFoundError{Resource: "session", ID: "id"}
 	}
 	return session, nil
 }

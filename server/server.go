@@ -236,7 +236,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		send:        make(chan *protocol.TransportMessage, 10),
 		id:          generateId(),
 		manager:     s.Lobby,
-		log:         slog.With("component", "client"),
+		log:         slog.With("component", "client", "request_id", ctx.Value("requestId")),
 		username:    session.GithubUserId,
 		connectedAt: time.Now(),
 	}

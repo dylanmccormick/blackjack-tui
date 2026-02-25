@@ -69,7 +69,7 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		requestId := generateId()
 		s.log.Info("[Request Start]", "method", r.Method, "path", r.URL.Path, "request_id", requestId)
-		ctx := context.WithValue(r.Context(), "request_id", requestId)
+		ctx := context.WithValue(r.Context(), "requestId", requestId)
 		reqWithCtx := r.WithContext(ctx)
 		next.ServeHTTP(w, reqWithCtx)
 		duration := time.Since(start).Seconds()
