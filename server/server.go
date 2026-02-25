@@ -21,6 +21,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
 )
 
@@ -45,6 +46,7 @@ type Client struct {
 	username    string
 	log         *slog.Logger
 	connectedAt time.Time
+	rateLimiter *rate.Limiter
 }
 
 const (
@@ -239,6 +241,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 		log:         slog.With("component", "client", "request_id", ctx.Value("requestId")),
 		username:    session.GithubUserId,
 		connectedAt: time.Now(),
+		rateLimiter: rate.NewLimiter(10, 20),
 	}
 	s.Metrics.ConnectedClients.Inc()
 	client.manager.register(client)
@@ -302,6 +305,12 @@ func (c *Client) readPump(ctx context.Context) {
 				c.log.Error("error with websocket", "error", err, "sessionId", ctx.Value("sessionId"), "client", ctx.Value("ghUsername"), "request_id", ctx.Value("requestId"))
 			}
 			break
+		}
+		if !c.rateLimiter.Allow() {
+			c.log.Warn("user being rate limited", "username", c.username)
+			msg := CreatePopUp("you're sending messages too fast", "error")
+			c.send <- msg
+			continue
 		}
 		message = bytes.TrimSpace(bytes.ReplaceAll(message, newline, space))
 		uMsg, err := unpackMessage(message)
