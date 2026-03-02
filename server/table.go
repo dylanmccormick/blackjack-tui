@@ -295,6 +295,7 @@ OuterLoop:
 			t.log.Debug("WAITING FOR MORE BETS")
 			if t.game.AllPlayersBet() {
 				t.game.StartRound()
+				t.log.Debug("STOPPING BET TIMER")
 			} else {
 				// if you don't do this there will be an infinite loop of WAITING_FOR_MORE_BETS checks
 				t.promptForBets()

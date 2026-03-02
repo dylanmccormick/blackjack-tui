@@ -27,6 +27,7 @@ type PlayerDTO struct {
 }
 
 type GameDTO struct {
+	State  string
 	Players    []PlayerDTO
 	DealerHand HandDTO
 }
@@ -95,8 +96,6 @@ func HandToDTO(h *game.Hand) HandDTO {
 }
 
 func PlayerToDTO(p *game.Player) PlayerDTO {
-	slog.Info("translating player", "player", p)
-	slog.Info("Current player?", "val", p.State == game.PLAYING_TURN)
 	return PlayerDTO{
 		Bet:           p.Bet,
 		Wallet:        p.Wallet,
@@ -117,6 +116,7 @@ func GameToDTO(g *game.Game) GameDTO {
 		}
 	}
 	return GameDTO{
+		State:  g.State.String(),
 		DealerHand: DealerToDTO(g.State, g.DealerHand),
 		Players:    players,
 	}

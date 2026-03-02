@@ -12,7 +12,7 @@ import (
 
 func TestCreateTable(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store, CreateMetrics())
+	lobby := NewLobby(store, CreateMetrics())
 	table := newTable(context.TODO(), "test_table", lobby, store, CreateMetrics())
 
 	if len(table.clients) != 0 {
@@ -22,7 +22,7 @@ func TestCreateTable(t *testing.T) {
 
 func TestTableClientInteractions(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store, CreateMetrics())
+	lobby := NewLobby(store, CreateMetrics())
 	table := newTable(context.TODO(), "test_table", lobby, store, CreateMetrics())
 
 	id, err := uuid.NewUUID()
@@ -48,7 +48,7 @@ func TestTableClientInteractions(t *testing.T) {
 
 func TestAutoProgress(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store, CreateMetrics())
+	lobby := NewLobby(store, CreateMetrics())
 	tab := newTable(context.TODO(), "test_table", lobby, store, CreateMetrics())
 	client := clientHelper(1)[0]
 	tab.RegisterClient(client)

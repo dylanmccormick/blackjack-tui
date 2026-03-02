@@ -18,7 +18,7 @@ func CreateMetrics() *Metrics {
 
 func TestCreateLobby(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store, CreateMetrics())
+	lobby := NewLobby(store, CreateMetrics())
 
 	if len(lobby.clients) != 0 {
 		t.Fatalf("No clients map created")
@@ -27,7 +27,7 @@ func TestCreateLobby(t *testing.T) {
 
 func TestRegisterClient(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store, CreateMetrics())
+	lobby := NewLobby(store, CreateMetrics())
 	id, err := uuid.NewUUID()
 	if err != nil {
 		t.Fatalf("Unable to create UUID. err=%#v", err)
@@ -50,7 +50,7 @@ func TestRegisterClient(t *testing.T) {
 
 func TestAddTable(t *testing.T) {
 	store, _ := store.NewStore(":memory:", "../sql/schema")
-	lobby := newLobby(store, CreateMetrics())
+	lobby := NewLobby(store, CreateMetrics())
 	lobby.createTable(context.TODO(), "test_table")
 	if len(lobby.tables) != 1 {
 		t.Fatalf("expected lobby to have 1 table. got=%d", len(lobby.tables))
@@ -66,7 +66,7 @@ func TestListTable(t *testing.T) {
 	c0 := clients[0]
 	c1 := clients[1]
 	store := store.Store{}
-	lobby := newLobby(&store, CreateMetrics())
+	lobby := NewLobby(&store, CreateMetrics())
 	lobby.createTable(context.TODO(), "test")
 	lobby.RegisterClient(c0)
 	lobby.RegisterClient(c1)

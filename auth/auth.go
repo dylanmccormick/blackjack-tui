@@ -16,7 +16,7 @@ type Session struct {
 	userCode      string
 	githubToken   string
 	GithubUserId  string
-	lastRequest   time.Time
+	LastRequest   time.Time
 	Authenticated bool
 	createdAt     time.Time
 }

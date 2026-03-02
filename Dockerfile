@@ -28,6 +28,7 @@ WORKDIR /root/
 # Copy the built binary from the builder stage
 COPY --from=builder /app/blackjack-tui .
 COPY config.yaml .  
+COPY ./sql/schema ./sql/schema
 
 # Expose the port your application listens on (e.g., 8080)
 EXPOSE 42069

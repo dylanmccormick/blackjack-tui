@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -30,6 +31,7 @@ func (gc *GithubClient) RequestDeviceCode(ctx context.Context) (*GHDeviceRespons
 }
 
 func (gc *GithubClient) PollAccessToken(ctx context.Context, deviceCode string) (string, error) {
+	slog.Info("Calling poll access token")
 	grantType := fmt.Sprintf("urn:ietf:params:oauth:grant-type:%s", "device_code")
 	url := "https://github.com/login/oauth/access_token"
 	data := map[string]string{"client_id": gc.clientID, "device_code": deviceCode, "grant_type": grantType}

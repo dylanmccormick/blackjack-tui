@@ -20,7 +20,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request, sm *SessionManager) *S
 	session := Session{
 		SessionId:     SessionId,
 		createdAt:     time.Now(),
-		lastRequest:   time.Now(),
+		LastRequest:   time.Now(),
 		Authenticated: false,
 	}
 	// 2. send GH request

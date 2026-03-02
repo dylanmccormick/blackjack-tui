@@ -157,7 +157,7 @@ func InitializeServer() *Server {
 func (s *Server) Run() {
 	slog.Debug("Server loaded with config", "config", s.Config)
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "config", s.Config)
+	ctx = context.WithValue(ctx, "config", *s.Config)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
@@ -27,6 +28,8 @@ type ChaosClient struct {
 	send     chan *protocol.TransportMessage
 	username string
 	behavior string
+
+	gameState *protocol.GameDTO
 }
 
 var yamlConfig = `
@@ -36,7 +39,7 @@ server:
   git_client_id: 'TEST'
   sqlite_db_name: ':memory:'
 
-log_level: DEBUG
+log_level: INFO
 
 table_action_timeout_seconds: 5
 table_auto_delete_timeout_minutes: 5
@@ -114,6 +117,7 @@ func spawnChaosClients(t *testing.T, n int, serverUrl string, sm *auth.SessionMa
 		c := &ChaosClient{
 			conn:     conn,
 			username: username,
+			behavior: "golden",
 		}
 
 		clients = append(clients, c)
@@ -153,9 +157,68 @@ func (c *ChaosClient) RandomAction() {
 	}
 }
 
+func (c *ChaosClient) readMessages(ctx context.Context) {
+	ticker := time.NewTicker(1000 * time.Millisecond)
+	for {
+		select {
+		case <-ctx.Done():
+			slog.Info("Stopping message reading")
+			return
+		case <-ticker.C:
+			var msg protocol.TransportMessage
+			err := c.conn.ReadJSON(&msg)
+			if err != nil {
+				return
+			}
+			if msg.Type == "game_state" {
+				var gameState protocol.GameDTO
+				json.Unmarshal(msg.Data, &gameState)
+				c.gameState = &gameState
+			}
+		}
+	}
+}
+
+func (c *ChaosClient) Act() {
+	switch c.behavior {
+	case "golden":
+		c.ActGolden()
+	case "random":
+		c.RandomAction()
+	}
+}
+
+func (c *ChaosClient) isMyTurn() bool {
+	slog.Info("Checking turn")
+	for _, player := range c.gameState.Players {
+		if player.Name == c.username && player.CurrentPlayer {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *ChaosClient) ActGolden() {
+	if c.gameState == nil {
+		c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5"))
+		return
+	}
+
+	switch c.gameState.State {
+	case "WAITING_FOR_BETS":
+		c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5"))
+	case "PLAYER_TURN":
+		if c.isMyTurn() {
+			c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgStand, ""))
+		}
+	default:
+		slog.Info("gamestate", "state", c.gameState.State)
+	}
+}
+
 func runChaos(ctx context.Context, clients []*ChaosClient, duration time.Duration) {
 	timer := time.NewTimer(duration)
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(1000 * time.Millisecond)
 	for {
 		select {
 		case <-ctx.Done():
@@ -163,7 +226,8 @@ func runChaos(ctx context.Context, clients []*ChaosClient, duration time.Duratio
 			return
 		case <-ticker.C:
 			for _, c := range clients {
-				c.RandomAction()
+				c.Act()
+				// c.RandomAction()
 			}
 		case <-timer.C:
 			return
@@ -206,11 +270,13 @@ func TestChaosMonkey(t *testing.T) {
 	server := setUpTestServer(t)
 
 	t.Log("Creating clients")
-	clients := spawnChaosClients(t, 1, "localhost:42069", server.SessionManager)
+	clients := spawnChaosClients(t, 4, "localhost:42069", server.SessionManager)
 	createTables(clients[0], 6)
 	for i, c := range clients {
-		t.Logf("Client %d (%s) joining table chaos%d", i, c.username, i%6)
-		c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgJoinTable, fmt.Sprintf("chaos%d", i%6)))
+		t.Logf("Client %d (%s) joining table chaos%d", i, c.username, 0)
+		c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgJoinTable, fmt.Sprintf("chaos%d", 0)))
+		t.Logf("Starting read message for chaos%d", i)
+		go c.readMessages(ctx)
 	}
 	// Wait for all joins to complete
 	time.Sleep(5 * time.Second)

@@ -10,7 +10,7 @@ import (
 )
 
 type SessionManager struct {
-	sessions map[string]*Session
+	Sessions map[string]*Session
 	log      *slog.Logger
 	Commands chan *SessionCmd
 	ghClient *GithubClient
@@ -18,7 +18,7 @@ type SessionManager struct {
 
 func NewSessionManager(gitClientID string) *SessionManager {
 	return &SessionManager{
-		sessions: make(map[string]*Session),
+		Sessions: make(map[string]*Session),
 		log:      slog.With("component", "sessionManager"),
 		Commands: make(chan *SessionCmd, 10),
 		ghClient: NewGithubClient(gitClientID),
@@ -39,10 +39,10 @@ type SessionCmd struct {
 }
 
 func (sm *SessionManager) cleanup() {
-	for _, session := range sm.sessions {
-		if int(time.Since(session.lastRequest).Seconds()) > 900 {
+	for _, session := range sm.Sessions {
+		if int(time.Since(session.LastRequest).Seconds()) > 900 {
 			sm.log.Info("Removing session", "session_id", session.SessionId)
-			delete(sm.sessions, session.SessionId)
+			delete(sm.Sessions, session.SessionId)
 		}
 	}
 	// this will delete sessions which haven't had a request in 15 minutes
@@ -60,7 +60,7 @@ func (sm *SessionManager) GetSession(id string) (*Session, error) {
 }
 
 func (sm *SessionManager) getSession(resp chan<- *Session, id string) {
-	s, ok := sm.sessions[id]
+	s, ok := sm.Sessions[id]
 	if !ok {
 		sm.log.Warn("Session doesn't exist", "sessionId", id)
 		resp <- nil
@@ -147,7 +147,7 @@ func (sm *SessionManager) AddSession(s *Session) {
 }
 
 func (sm *SessionManager) updateSession(c *SessionCmd) {
-	s, ok := sm.sessions[c.SessionId]
+	s, ok := sm.Sessions[c.SessionId]
 	if !ok {
 		return
 	}
@@ -166,7 +166,7 @@ func (sm *SessionManager) updateSession(c *SessionCmd) {
 
 func (sm *SessionManager) addSession(s *Session) {
 	sm.log.Info("Adding session to session manager", "sessionID", s.SessionId)
-	sm.sessions[s.SessionId] = s
+	sm.Sessions[s.SessionId] = s
 }
 
 func (sm *SessionManager) ProcessCommand(ctx context.Context, cmd *SessionCmd) {

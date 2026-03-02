@@ -65,7 +65,7 @@ type Game struct {
 }
 
 func NewGame(config GameConfig) *Game {
-	slog.Debug("Creating game")
+	slog.Info("Creating game")
 	return &Game{
 		State:              WAIT_FOR_START,
 		Deck:               CreateDeck(config.DeckCount, config.CutLocation),

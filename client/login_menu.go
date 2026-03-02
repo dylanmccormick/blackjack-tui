@@ -40,7 +40,7 @@ func (lm *LoginMenu) viewUserCodePage() string {
 	sb.WriteString(lm.userCode)
 	sb.WriteString("\n")
 
-	sb.WriteString("Go to https://github.com/device/login and enter the above code\n")
+	sb.WriteString("Go to https://github.com/login/device and enter the above code\n")
 	return sb.String()
 }
 

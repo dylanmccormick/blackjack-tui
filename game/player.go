@@ -80,7 +80,7 @@ func (p *Player) IsActive() bool {
 }
 
 func (p *Player) ShouldRemove() bool {
-	slog.Info("Checking if player should be removed")
+	slog.Debug("Checking if player should be removed")
 	if p.DisconnectedAt.IsZero() {
 		return false
 	}
