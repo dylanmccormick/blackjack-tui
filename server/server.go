@@ -85,7 +85,7 @@ type Server struct {
 	Lobby          *Lobby
 	Store          *store.Store
 	Config         *Config
-	log            *slog.Logger
+	Log            *slog.Logger
 	Metrics        *Metrics
 	Registry       *prometheus.Registry
 }
@@ -130,7 +130,7 @@ func InitializeServer() *Server {
 	registry := prometheus.NewRegistry()
 	metrics := NewMetrics(registry)
 	SessionManager := auth.NewSessionManager(Config.Server.GitClientID)
-	Lobby := newLobby(Store, metrics)
+	Lobby := NewLobby(Store, metrics)
 	var level slog.Level
 	err = level.UnmarshalText([]byte(Config.LogLevel))
 	if err != nil {
@@ -148,7 +148,7 @@ func InitializeServer() *Server {
 		SessionManager: SessionManager,
 		Lobby:          Lobby,
 		Store:          Store,
-		log:            serverLog,
+		Log:            serverLog,
 		Metrics:        metrics,
 		Registry:       registry,
 	}
@@ -202,7 +202,7 @@ func (s *Server) Run() {
 	go server.ListenAndServe()
 
 	<-sigChan
-	s.log.Info("Received shutdown signal")
+	s.Log.Info("Received shutdown signal")
 	cancel()
 
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -210,7 +210,7 @@ func (s *Server) Run() {
 	server.Shutdown(shutdownCtx)
 
 	wg.Wait()
-	s.log.Info("Shutdown Complete")
+	s.Log.Info("Shutdown Complete")
 }
 
 func generateId() uuid.UUID {
@@ -229,7 +229,7 @@ func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {
 	ctx = context.WithValue(ctx, "sessionId", session.SessionId)
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		s.log.Error("An error occurred upgrading the http connection", "error", err, "request_id", ctx.Value("requestId"))
+		s.Log.Error("An error occurred upgrading the http connection", "error", err, "request_id", ctx.Value("requestId"))
 		http.Error(w, "Error upgrading connection", http.StatusInternalServerError)
 		return
 	}

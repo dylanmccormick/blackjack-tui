@@ -84,9 +84,15 @@ func newTable(ctx context.Context, name string, lobby *Lobby, store *store.Store
 		Config:         config,
 	}
 	t.log = t.log.With("table_id", t.id)
-	t.betTimer.Stop()
-	t.actionTimer.Stop()
-	t.tableTimer.Stop()
+	if !t.betTimer.Stop() {
+		<-t.betTimer.C
+	}
+	if !t.actionTimer.Stop() {
+		<-t.actionTimer.C
+	}
+	if !t.tableTimer.Stop() {
+		<-t.tableTimer.C
+	}
 	t.log.Info("created new table", "table", t, "actionTimer", config.TableActionTimeout, "betTimer", config.BetTimeout, "tableTimer", config.TableDeleteTimeout)
 	return t
 }
@@ -203,6 +209,7 @@ func (t *Table) handleCommand(msg inboundMessage) {
 			if popup != nil {
 				msg.client.send <- popup
 			}
+			return
 		}
 	case protocol.MsgDealCards:
 		t.game.DealCards()
@@ -214,6 +221,7 @@ func (t *Table) handleCommand(msg inboundMessage) {
 			if popup != nil {
 				msg.client.send <- popup
 			}
+			return
 		}
 		t.actionTimer.Reset(time.Duration(t.Config.TableActionTimeout) * time.Second)
 	case protocol.MsgStand:
@@ -223,6 +231,7 @@ func (t *Table) handleCommand(msg inboundMessage) {
 			if popup != nil {
 				msg.client.send <- popup
 			}
+			return
 		}
 		t.actionTimer.Reset(time.Duration(t.Config.TableActionTimeout) * time.Second)
 		t.log.Debug("Standing", "client", msg.client.id)
@@ -305,6 +314,9 @@ OuterLoop:
 			if err != nil {
 				slog.Error("Error in autoprogress. Unable to resolve bets", "error", err)
 			}
+
+			t.log.Info("Round results", "results", pmap)
+
 			t.StoreGameData(pmap)
 			t.betTimer.Reset(time.Duration(t.Config.BetTimeout) * time.Second)
 		default:

@@ -34,7 +34,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 		sessionId := r.URL.Query().Get("session")
 		session, err := s.SessionManager.GetSession(sessionId)
 		if err != nil {
-			s.log.Error("error with session", "error", err, "request_id", r.Context().Value("requestId"))
+			s.Log.Error("error with session", "error", err, "request_id", r.Context().Value("requestId"))
 			http.Error(w, "Authentication Required", http.StatusUnauthorized)
 			return
 		}
@@ -51,7 +51,7 @@ func (s *Server) panicRecoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				s.log.Error("PANIC recovered",
+				s.Log.Error("PANIC recovered",
 					"error", err,
 					"path", r.URL.Path,
 					"method", r.Method,
@@ -68,12 +68,12 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		requestId := generateId()
-		s.log.Info("[Request Start]", "method", r.Method, "path", r.URL.Path, "request_id", requestId)
+		s.Log.Info("[Request Start]", "method", r.Method, "path", r.URL.Path, "request_id", requestId)
 		ctx := context.WithValue(r.Context(), "requestId", requestId)
 		reqWithCtx := r.WithContext(ctx)
 		next.ServeHTTP(w, reqWithCtx)
 		duration := time.Since(start).Seconds()
-		s.log.Info("[Request End]", "method", r.Method, "path", r.URL.Path, "duration", duration, "request_id", requestId)
+		s.Log.Info("[Request End]", "method", r.Method, "path", r.URL.Path, "duration", duration, "request_id", requestId)
 	})
 }
 

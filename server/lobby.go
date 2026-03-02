@@ -27,7 +27,7 @@ type Lobby struct {
 	Metrics        *Metrics
 }
 
-func newLobby(store *store.Store, metrics *Metrics) *Lobby {
+func NewLobby(store *store.Store, metrics *Metrics) *Lobby {
 	return &Lobby{
 		clients:        make(map[*Client]bool),
 		registerChan:   make(chan *Client),
