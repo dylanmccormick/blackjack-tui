@@ -69,7 +69,7 @@ func newTable(ctx context.Context, name string, lobby *Lobby, store *store.Store
 		idToClient:     make(map[uuid.UUID]*Client),
 		registerChan:   make(chan *Client),
 		unregisterChan: make(chan *Client),
-		inbound:        make(chan inboundMessage),
+		inbound:        make(chan inboundMessage, 100),
 		id:             name,
 		game:           game.NewGame(gameConfig),
 		betTimer:       time.NewTimer(time.Duration(config.BetTimeout) * time.Second),
@@ -294,6 +294,7 @@ OuterLoop:
 		case game.WAITING_FOR_BETS:
 			t.log.Debug("WAITING FOR MORE BETS")
 			if t.game.AllPlayersBet() {
+				t.betTimer.Stop()
 				t.game.StartRound()
 				t.log.Debug("STOPPING BET TIMER")
 			} else {

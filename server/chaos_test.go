@@ -158,22 +158,35 @@ func (c *ChaosClient) RandomAction() {
 }
 
 func (c *ChaosClient) readMessages(ctx context.Context) {
-	ticker := time.NewTicker(1000 * time.Millisecond)
+	slog.Info("Starting read loop", "client", c.username)
+	defer slog.Info("Exiting read loop", "client", c.username)
+
 	for {
 		select {
 		case <-ctx.Done():
-			slog.Info("Stopping message reading")
+			slog.Info("Context cancelled, stopping read", "client", c.username)
 			return
-		case <-ticker.C:
+		default:
+			slog.Debug("Attempting to read message", "client", c.username)
+
 			var msg protocol.TransportMessage
 			err := c.conn.ReadJSON(&msg)
 			if err != nil {
+				slog.Error("Read error", "error", err, "client", c.username)
 				return
 			}
+
+			slog.Info("Received message!", "type", msg.Type, "client", c.username)
+
 			if msg.Type == "game_state" {
 				var gameState protocol.GameDTO
-				json.Unmarshal(msg.Data, &gameState)
+				err := json.Unmarshal(msg.Data, &gameState)
+				if err != nil {
+					slog.Error("Failed to unmarshal", "error", err, "client", c.username)
+					continue
+				}
 				c.gameState = &gameState
+				slog.Info("Updated game state!", "state", gameState.State, "client", c.username)
 			}
 		}
 	}
@@ -200,35 +213,38 @@ func (c *ChaosClient) isMyTurn() bool {
 
 func (c *ChaosClient) ActGolden() {
 	if c.gameState == nil {
+		slog.Info("Game state is nil", "clientUser", c.username)
 		c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5"))
 		return
 	}
 
 	switch c.gameState.State {
 	case "WAITING_FOR_BETS":
+		slog.Info("Acting on business. (I read the messsages", "clientUser", c.username)
 		c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgPlaceBet, "5"))
 	case "PLAYER_TURN":
 		if c.isMyTurn() {
+			slog.Info("MY TURN. STANDING", "chaosClientNum", c.username)
 			c.conn.WriteJSON(protocol.PackageClientMessage(protocol.MsgStand, ""))
 		}
 	default:
-		slog.Info("gamestate", "state", c.gameState.State)
+		slog.Info("gamestate", "state", c.gameState.State, "clientUser", c.username)
 	}
 }
 
 func runChaos(ctx context.Context, clients []*ChaosClient, duration time.Duration) {
 	timer := time.NewTimer(duration)
 	ticker := time.NewTicker(1000 * time.Millisecond)
+	clientNum := 0
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("Chaos test interrupted by user")
 			return
 		case <-ticker.C:
-			for _, c := range clients {
-				c.Act()
-				// c.RandomAction()
-			}
+			clients[clientNum].Act()
+			clientNum += 1
+			clientNum = clientNum % len(clients)
 		case <-timer.C:
 			return
 		}
